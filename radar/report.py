@@ -521,11 +521,20 @@ def _subject(radar: str, mode: str, k: dict, ch: dict | None, d: str) -> str:
     if mode == "atualizacao":
         if not ch or ch["total"] == 0:
             return f"{marca} · Atualização {d}: sem novidades"
+        def n(c, um, varios):
+            return f"{c} {um if c == 1 else varios}"
         if radar == "veiculos":
-            return (f"{marca} · Atualização {d}: {len(ch['new_veh']['automovel'])} carros e "
-                    f"{len(ch['new_veh']['moto'])} motos novos, {len(ch['closed'])} encerrados")
-        noun = "imóveis" if radar == "imoveis" else "eletrônicos novos"
-        return f"{marca} · Atualização {d}: {len(ch['new_items'])} {noun}, {len(ch['drops'])} quedas de preço"
+            parts = [n(len(ch["new_veh"]["automovel"]), "carro novo", "carros novos"),
+                     n(len(ch["new_veh"]["moto"]), "moto nova", "motos novas")]
+        elif radar == "imoveis":
+            parts = [n(len(ch["new_items"]), "imóvel novo", "imóveis novos"),
+                     n(len(ch["drops"]), "queda de preço", "quedas de preço")]
+        else:
+            parts = [n(len(ch["new_items"]), "eletrônico novo", "eletrônicos novos"),
+                     n(len(ch["drops"]), "queda de preço", "quedas de preço")]
+        parts.append(n(len(ch["closed"]), "lote encerrado", "lotes encerrados"))
+        parts = [x for x in parts if not x.startswith("0 ")] or ["sem novidades"]
+        return f"{marca} · Atualização {d}: " + ", ".join(parts)
     if mode == "semanal":
         n = len(ch["new_items"]) if ch else 0
         return f"{marca} · Resumo da semana ({d}): {n} novidades na semana"

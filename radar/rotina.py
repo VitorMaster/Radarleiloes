@@ -117,9 +117,13 @@ def run(conn: sqlite3.Connection, out_dir: str | Path, mode: str | None = None, 
         return None
     started = now_iso()
     since = since_for(conn, mode)
-    run_id = conn.execute("INSERT INTO routine_runs (mode, started_at, since) VALUES (?,?,?)",
-                          (mode, started, since)).lastrowid
-    conn.commit()
+    # só uma rotina COM captura marca o ponto de corte da próxima atualização;
+    # regerar o relatório sem captura não mexe no histórico de rotinas
+    run_id = None
+    if capture:
+        run_id = conn.execute("INSERT INTO routine_runs (mode, started_at, since) VALUES (?,?,?)",
+                              (mode, started, since)).lastrowid
+        conn.commit()
     cap = capture_all(conn, log) if capture else {}
     out = Path(out_dir)
     emails = []
@@ -140,8 +144,9 @@ def run(conn: sqlite3.Connection, out_dir: str | Path, mode: str | None = None, 
     manifest = {"mode": mode, "since": since, "generated_at": started, "emails": emails, "capture": cap}
     (out / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     summary = {"subjects": [e["subject"] for e in emails], "failed_sources": [k for k, v in cap.items() if "error" in v]}
-    conn.execute("UPDATE routine_runs SET finished_at=?, ok=1, summary=? WHERE id=?",
-                 (now_iso(), json.dumps(summary, ensure_ascii=False), run_id))
-    conn.commit()
+    if run_id is not None:
+        conn.execute("UPDATE routine_runs SET finished_at=?, ok=1, summary=? WHERE id=?",
+                     (now_iso(), json.dumps(summary, ensure_ascii=False), run_id))
+        conn.commit()
     log(f"Modo: {mode} · desde: {since or '—'} · manifesto: {out / 'manifest.json'}")
     return manifest
