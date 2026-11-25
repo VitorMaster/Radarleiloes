@@ -83,13 +83,16 @@ def cmd_rotina(args) -> int:
 
     from .digest import send_email
     from .rotina import run
+    radars = tuple(args.radar.split(",")) if args.radar != "todos" else ("imoveis", "veiculos", "eletronicos")
     with closing(connect(args.db)) as conn:
-        man = run(conn, args.out, mode=None if args.modo == "auto" else args.modo, capture=not args.sem_captura)
-    if man and args.to:
-        html = Path(man["html"]).read_text(encoding="utf-8")
-        ok = send_email(args.to, man["subject"], html, [i["path"] for i in man["inline_images"]],
-                        [man["pdf"]["path"]] if man["pdf"] else None)
-        print("Enviado por SMTP." if ok else "SMTP não configurado: use o manifesto para enviar.")
+        man = run(conn, args.out, mode=None if args.modo == "auto" else args.modo, capture=not args.sem_captura,
+                  radars=radars)
+    if man and args.smtp:
+        for e in man["emails"]:
+            html = Path(e["html"]).read_text(encoding="utf-8")
+            ok = send_email(e["to"], e["subject"], html, [i["path"] for i in e["inline_images"]],
+                            [e["pdf"]["path"]] if e["pdf"] else None)
+            print(f"[{e['radar']}] " + ("enviado por SMTP." if ok else "SMTP não configurado: use o manifesto."))
     return 0
 
 
@@ -170,7 +173,8 @@ def main(argv: list[str] | None = None) -> int:
     ro = sub.add_parser("rotina", help="rotina diária: seg completa, ter-sex atualização, sáb resumo semanal")
     ro.add_argument("--modo", default="auto", choices=["auto", "completo", "atualizacao", "semanal"])
     ro.add_argument("--out", default="data/relatorio")
-    ro.add_argument("--to", help="enviar por SMTP para este e-mail")
+    ro.add_argument("--radar", default="todos", help="imoveis | veiculos | eletronicos | todos (ou lista separada por vírgula)")
+    ro.add_argument("--smtp", action="store_true", help="enviar cada e-mail por SMTP (SMTP_* e RADAR_EMAIL_*)")
     ro.add_argument("--sem-captura", action="store_true", help="só gera o relatório com os dados atuais")
     ro.set_defaults(func=cmd_rotina)
 

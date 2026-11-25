@@ -83,19 +83,34 @@ def text_body(rep: dict) -> str:
     k, ch = rep["kpis"], rep.get("changes")
     lines = [rep["subject"], ""]
     if ch:
-        lines.append(f"Imóveis novos: {len(ch['new_props'])} · quedas de preço: {len(ch['drops'])} · "
-                     f"veículos novos: {sum(len(v) for v in ch['new_veh'].values())} · encerrados: {len(ch['closed'])}")
-    lines.append(f"Na sua área: {k['total']} imóveis ({k['d40']} com 40%+ de desconto), "
-                 f"{k['motos']} motos e {k['automoveis']} automóveis.")
+        lines.append(f"Novidades: {len(ch['new_items'])} · quedas de preço: {len(ch['drops'])} · "
+                     f"encerrados: {len(ch['closed'])}")
+    if rep.get("radar") == "veiculos":
+        lines.append(f"Na sua região: {k['automoveis']} automóveis e {k['motos']} motos em leilão.")
+    elif rep.get("radar") == "eletronicos":
+        lines.append(f"Eletrônicos novos em leilão: {k.get('el_total', 0)}.")
+    else:
+        lines.append(f"Na sua área: {k['total']} imóveis ({k['d40']} com 40%+ de desconto).")
     for h in rep["highlights"][:6]:
-        lines.append(f"- {h['title']} ({h['city']}/{h['uf']}): R$ {h['min_bid']:,.2f}".replace(",", "X")
+        lines.append(f"- {h['title']} ({h.get('city') or '—'}/{h.get('uf') or '—'}): R$ {(h['min_bid'] or 0):,.2f}".replace(",", "X")
                      .replace(".", ",").replace("X", ".") + f" — {h['url']}")
     lines += ["", "O Radar vende informação e análise; não intermedeia lances. Confira sempre o edital oficial."]
     return "\n".join(lines)
 
 
+RADARS = ("imoveis", "veiculos", "eletronicos")
+
+
+def recipient(radar: str) -> str:
+    """Destinatário de cada radar: RADAR_EMAIL_IMOVEIS / _VEICULOS / _ELETRONICOS, ou RADAR_EMAIL."""
+    import os
+    return (os.environ.get(f"RADAR_EMAIL_{radar.upper()}") or os.environ.get("RADAR_EMAIL")
+            or os.environ.get("RADAR_CONTACT_EMAIL", ""))
+
+
 def run(conn: sqlite3.Connection, out_dir: str | Path, mode: str | None = None, capture: bool = True,
-        log=print) -> dict | None:
+        radars: tuple[str, ...] = RADARS, log=print) -> dict | None:
+    """Captura todas as fontes UMA vez e gera um relatório/e-mail independente por radar."""
     mode = mode or mode_for()
     if not mode:
         log("Domingo: a rotina não roda.")
@@ -106,23 +121,27 @@ def run(conn: sqlite3.Connection, out_dir: str | Path, mode: str | None = None, 
                           (mode, started, since)).lastrowid
     conn.commit()
     cap = capture_all(conn, log) if capture else {}
-    rep = build_report(conn, out_dir, mode=mode, since=since)
     out = Path(out_dir)
-    (out / "email.txt").write_text(text_body(rep), encoding="utf-8")
-    (out / "email_min.html").write_text(minify(rep["html"]), encoding="utf-8")
-    manifest = {
-        "mode": mode, "subject": rep["subject"], "since": since, "generated_at": started,
-        "html": str((out / "email_min.html").resolve()), "text": str((out / "email.txt").resolve()),
-        "inline_images": [{"cid": f"att{i}", "path": str(p.resolve()), "sha256": _sha(p), "filename": p.name}
-                          for i, p in enumerate(rep["images"])],
-        "pdf": ({"path": str(Path(rep["pdf"]).resolve()), "sha256": _sha(Path(rep["pdf"])),
-                 "filename": Path(rep["pdf"]).name} if rep["pdf"] else None),
-        "capture": cap,
-    }
+    emails = []
+    for radar in radars:
+        rdir = out / radar
+        rep = build_report(conn, rdir, mode=mode, since=since, radar=radar)
+        (rdir / "email.txt").write_text(text_body(rep), encoding="utf-8")
+        (rdir / "email_min.html").write_text(minify(rep["html"]), encoding="utf-8")
+        emails.append({
+            "radar": radar, "to": recipient(radar), "subject": rep["subject"],
+            "html": str((rdir / "email_min.html").resolve()), "text": str((rdir / "email.txt").resolve()),
+            "inline_images": [{"cid": f"att{i}", "path": str(p.resolve()), "sha256": _sha(p), "filename": p.name}
+                              for i, p in enumerate(rep["images"])],
+            "pdf": ({"path": str(Path(rep["pdf"]).resolve()), "sha256": _sha(Path(rep["pdf"])),
+                     "filename": Path(rep["pdf"]).name} if rep["pdf"] else None),
+        })
+        log(f"[{radar}] {rep['subject']}")
+    manifest = {"mode": mode, "since": since, "generated_at": started, "emails": emails, "capture": cap}
     (out / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-    summary = {"subject": rep["subject"], "failed_sources": [k for k, v in cap.items() if "error" in v]}
+    summary = {"subjects": [e["subject"] for e in emails], "failed_sources": [k for k, v in cap.items() if "error" in v]}
     conn.execute("UPDATE routine_runs SET finished_at=?, ok=1, summary=? WHERE id=?",
                  (now_iso(), json.dumps(summary, ensure_ascii=False), run_id))
     conn.commit()
-    log(f"Modo: {mode} · desde: {since or '—'}\nAssunto: {rep['subject']}\nManifesto: {out / 'manifest.json'}")
+    log(f"Modo: {mode} · desde: {since or '—'} · manifesto: {out / 'manifest.json'}")
     return manifest

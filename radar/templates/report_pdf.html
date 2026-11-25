@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<title>Radar de Leilões — {{ edicao }}</title>
+<title>{{ marca }} — {{ edicao }}</title>
 <style>
 {{ fonts|safe }}
 @page { size: A4; margin: 0; }
@@ -146,10 +146,9 @@ p.back { font: 300 11.5pt/1.6 'Inter'; color: rgba(243,237,226,.78); max-width: 
 </style>
 </head>
 <body>
-{%- set npairs = (highlights|length + 1) // 2 -%}
-{%- set nov = 1 if (mode == 'semanal' and ch) else 0 -%}
+{%- set pg = namespace(n=0) -%}
 {%- macro folio(n) -%}
-<div class="folio"><span><b>●</b>&nbsp; Radar de Leilões · {{ mode_label }} · {{ edicao }}</span><span>{{ '%02d'|format(n) }}</span></div>
+<div class="folio"><span><b>●</b>&nbsp; {{ marca }} · {{ mode_label }} · {{ edicao }}</span><span>{{ '%02d'|format(n) }}</span></div>
 {%- endmacro -%}
 {%- macro pct(v) -%}{{ '%.0f'|format(v or 0) }}{%- endmacro -%}
 {%- macro rings() -%}
@@ -183,25 +182,45 @@ p.back { font: 300 11.5pt/1.6 'Inter'; color: rgba(243,237,226,.78); max-width: 
 <section class="page dark cover">
   {{ rings() }}
   <div class="pad" style="position:relative;">
-    <div class="cover-top"><div class="brand"><i></i>Radar de Leilões</div><div class="eyebrow" style="color:rgba(243,237,226,.6)">{{ mode_label }} · {{ edicao }}</div></div>
+    <div class="cover-top"><div class="brand"><i></i>Radar Leilões · {{ radar_nome }}</div><div class="eyebrow" style="color:rgba(243,237,226,.6)">{{ mode_label }} · {{ edicao }}</div></div>
     {% if mode == 'semanal' %}
     <h1>A semana <em>em leilões</em>.</h1>
-    <p class="lead">O compilado de segunda a sábado: <b>{{ ch.new_props|length if ch else 0 }} imóveis novos</b>, {{ ch.drops|length if ch else 0 }} quedas de preço e {{ ch.closed|length if ch else 0 }} lotes encerrados, mais as melhores oportunidades abertas entre <b>{{ '{:,}'.format(k.monitored).replace(',', '.') }} lotes monitorados</b>.</p>
+    <p class="lead">O compilado de segunda a sábado em {{ radar_nome|lower }}: <b>{{ ch.new_items|length if ch else 0 }} novidades</b>, {{ ch.drops|length if ch else 0 }} quedas de preço e {{ ch.closed|length if ch else 0 }} lotes encerrados, mais as melhores oportunidades abertas.</p>
+    {% elif radar == 'veiculos' %}
+    <h1>Carros e motos <em>pelo preço do lance</em>.</h1>
+    <p class="lead"><b>{{ k.automoveis }} automóveis e {{ k.motos }} motocicletas</b> em leilões oficiais na sua região, com o preço que lotes parecidos realmente alcançaram.</p>
+    {% elif radar == 'eletronicos' %}
+    <h1>Tecnologia nova <em>abaixo da loja</em>.</h1>
+    <p class="lead">Celulares, notebooks, computadores e eletrônicos em leilão. <b>Regra única: só itens novos</b> — lacrados, na caixa ou de estoque de fábrica. Devoluções e usados ficam de fora.</p>
     {% else %}
     <h1>Onde o desconto <em>encontra</em> a decisão.</h1>
-    <p class="lead">Varredura completa da semana: <b>{{ k.total }} imóveis, {{ k.motos }} motocicletas e {{ k.automoveis }} automóveis</b> em leilão na sua região, com desconto, ocupação e risco jurídico avaliados, entre <b>{{ '{:,}'.format(k.monitored).replace(',', '.') }} lotes monitorados</b> em fontes oficiais.</p>
+    <p class="lead">Varredura completa: <b>{{ k.total }} imóveis em leilão</b> na sua região, com desconto, ocupação e risco jurídico avaliados, entre <b>{{ '{:,}'.format(k.monitored).replace(',', '.') }} lotes monitorados</b> em fontes oficiais.</p>
     {% endif %}
-    <div class="area-tag"><span>Espírito Santo inteiro</span><span>·</span><span>MG e BA no entorno de {{ base }}</span></div>
+    {% if radar == 'eletronicos' %}<div class="area-tag"><span>Todo o Brasil</span><span>·</span><span>Somente itens novos</span></div>
+    {% else %}<div class="area-tag"><span>Espírito Santo inteiro</span><span>·</span><span>MG e BA no entorno de {{ base }}</span></div>{% endif %}
   </div>
   <div class="kpi-band">
+    {% if radar == 'veiculos' %}
+    <div class="kpi"><div class="v">{{ k.automoveis }}</div><div class="l">automóveis<br>em leilão</div></div>
+    <div class="kpi"><div class="v">{{ k.motos }}</div><div class="l">motocicletas<br>em leilão</div></div>
+    <div class="kpi"><div class="v">{{ k.editais }}</div><div class="l">editais<br>oficiais</div></div>
+    <div class="kpi"><div class="v">{{ k.arrematados }}</div><div class="l">preços<br>realizados</div></div>
+    {% elif radar == 'eletronicos' %}
+    <div class="kpi"><div class="v">{{ k.el_total }}</div><div class="l">itens novos<br>em leilão</div></div>
+    <div class="kpi"><div class="v">{{ pct(k.el_avgd) }}<small>%</small></div><div class="l">desconto médio<br>sobre o mercado</div></div>
+    <div class="kpi"><div class="v" style="font-size:17pt">{{ brl(k.el_minp) if k.el_minp else '—' }}</div><div class="l">lances a<br>partir de</div></div>
+    <div class="kpi"><div class="v">{{ k.el_kinds }}</div><div class="l">tipos de<br>aparelho</div></div>
+    {% else %}
     <div class="kpi"><div class="v">{{ k.total }}</div><div class="l">imóveis na<br>sua área</div></div>
     <div class="kpi"><div class="v">{{ k.d40 }}</div><div class="l">com 40% ou mais<br>de desconto</div></div>
-    <div class="kpi"><div class="v">{{ k.motos }}</div><div class="l">motocicletas<br>em leilão</div></div>
-    <div class="kpi"><div class="v">{{ k.automoveis }}</div><div class="l">automóveis<br>em leilão</div></div>
+    <div class="kpi"><div class="v">{{ pct(k.maxd) }}<small>%</small></div><div class="l">maior<br>desconto</div></div>
+    <div class="kpi"><div class="v">{{ k.cidades }}</div><div class="l">cidades com<br>oportunidades</div></div>
+    {% endif %}
   </div>
-  {{ folio(1) }}
+  {%- set pg.n = pg.n + 1 -%}{{ folio(pg.n) }}
 </section>
 
+{% if radar == 'imoveis' %}
 <!-- ============ 2. ÁREA / RADAR ============ -->
 <section class="page dark">
   <div class="pad">
@@ -209,7 +228,7 @@ p.back { font: 300 11.5pt/1.6 'Inter'; color: rgba(243,237,226,.78); max-width: 
     <h2 class="section-title">O radar centrado em <em>{{ base }}</em></h2>
     <p class="section-lead">Cobrimos o Espírito Santo inteiro e, em Minas Gerais e na Bahia, os municípios no entorno de {{ base }}. Cada ponto é uma cidade com imóveis em leilão; quanto maior o ponto, mais lotes.</p>
     <div class="radar-wrap">
-      <div>{{ radar|safe }}
+      <div>{{ radar_svg|safe }}
         <div class="legend">{% for uf in ['ES', 'MG', 'BA'] %}<span style="--c: {{ uf_colors[uf] }}">{{ uf_names[uf] }}</span>{% endfor %}</div>
       </div>
       <div class="uf-stack">
@@ -227,23 +246,24 @@ p.back { font: 300 11.5pt/1.6 'Inter'; color: rgba(243,237,226,.78); max-width: 
       {% endfor %}
     </table>
   </div>
-  {{ folio(2) }}
+  {%- set pg.n = pg.n + 1 -%}{{ folio(pg.n) }}
 </section>
+{% endif %}
 
-{% if nov %}
+{% if mode == 'semanal' and ch %}
 <!-- ============ NOVIDADES DA SEMANA ============ -->
 <section class="page light">
   <div class="pad">
     <div class="eyebrow" style="color: var(--gold-deep)">Semana · Novidades</div>
     <h2 class="section-title">O que <em style="color: var(--gold-deep)">mudou</em> nesta semana</h2>
-    <div class="sub-h">Imóveis que entraram em leilão</div>
+    <div class="sub-h">{{ 'Imóveis' if radar == 'imoveis' else ('Veículos' if radar == 'veiculos' else 'Eletrônicos novos') }} que entraram em leilão</div>
     <table class="vt">
       <tr><th>Imóvel</th><th class="r">Avaliação</th><th class="r">Lance mínimo</th><th class="r">Desconto</th></tr>
-      {% for r in ch.new_props[:12] %}
-      <tr><td><a href="{{ r.url }}" style="color: inherit; text-decoration: none;"><div class="ttl">{{ r.title }}</div></a><div class="sub">{{ r.city }}/{{ r.uf }} · {{ src.get(r.source_id, r.source_id) }} · {{ r.sale_type }}</div></td>
-        <td class="r" style="color: var(--muted)">{{ brl(r.appraisal_value) }}</td><td class="r" style="font-weight:600">{{ brl(r.min_bid) }}</td>
+      {% for r in ch.new_items[:12] %}
+      <tr><td><a href="{{ r.url }}" style="color: inherit; text-decoration: none;"><div class="ttl">{{ r.title }}</div></a><div class="sub">{{ r.city or '' }}/{{ r.uf or '' }} · {{ src.get(r.source_id, r.source_id) }} · {{ r.sale_type }}</div></td>
+        <td class="r" style="color: var(--muted)">{{ brl(r.appraisal_value) if r.appraisal_value else '—' }}</td><td class="r" style="font-weight:600">{{ brl(r.min_bid) }}</td>
         <td class="r"><b style="color: var(--gold-deep)">{{ (pct(r.discount_pct) ~ '%') if r.discount_pct and r.discount_pct > 0 else '—' }}</b></td></tr>
-      {% else %}<tr><td colspan="4" style="color: var(--muted)">Nenhum imóvel novo na região nesta semana.</td></tr>{% endfor %}
+      {% else %}<tr><td colspan="4" style="color: var(--muted)">Nenhuma novidade nesta semana.</td></tr>{% endfor %}
     </table>
     {% if ch.drops %}
     <div class="sub-h">Preços que caíram</div>
@@ -256,7 +276,7 @@ p.back { font: 300 11.5pt/1.6 'Inter'; color: rgba(243,237,226,.78); max-width: 
     </table>
     {% endif %}
   </div>
-  {{ folio(3) }}
+  {%- set pg.n = pg.n + 1 -%}{{ folio(pg.n) }}
 </section>
 {% endif %}
 
@@ -264,29 +284,41 @@ p.back { font: 300 11.5pt/1.6 'Inter'; color: rgba(243,237,226,.78); max-width: 
 {% for pair in highlights|batch(2) %}
 <section class="page light">
   <div class="pad">
-    <div class="hl-head"><div><div class="eyebrow" style="color: var(--gold-deep)">02 · Seleção do Radar</div><h2 style="margin-top:3mm">Destaques <em>da edição</em></h2></div>
+    <div class="hl-head"><div><div class="eyebrow" style="color: var(--gold-deep)">02 · Seleção do Radar</div><h2 style="margin-top:3mm">{{ 'Eletrônicos' if radar == 'eletronicos' else 'Destaques' }} <em>{{ 'novos da edição' if radar == 'eletronicos' else 'da edição' }}</em></h2></div>
       <div class="eyebrow" style="color: var(--muted)">{{ loop.index }} / {{ loop.length }}</div></div>
     {% for h in pair %}
     <article class="card">
       <div class="photo{{ '' if h.img_uri else ' nophoto' }}"{% if h.img_uri %} style="background-image:url('{{ h.img_uri }}')"{% endif %}>
         {% if not h.img_uri %}<div class="nophoto-tag">Foto não divulgada pela fonte</div>{% endif %}
-        <div class="idx">Nº {{ '%02d'|format(highlights.index(h) + 1) }} · {{ uf_names[h.uf] }}</div>
+        <div class="idx">Nº {{ '%02d'|format(highlights.index(h) + 1) }} · {{ (klabel.get(h.kind, 'Eletrônico') ~ ' novo') if radar == 'eletronicos' else uf_names.get(h.uf, h.uf) }}</div>
         {% if h.discount_pct %}<div class="disc"><b>-{{ pct(h.discount_pct) }}%</b><span>desconto</span></div>{% endif %}
         <div class="over"><h3>{{ h.title }}</h3><p>{% if h.neighborhood %}{{ h.neighborhood }} · {% endif %}{{ h.city }}/{{ h.uf }}</p></div>
       </div>
       <div class="body">
         <div class="price">
-          <div class="label">Lance mínimo</div>
+          <div class="label">{{ 'Lance atual' if radar == 'eletronicos' else 'Lance mínimo' }}</div>
           <div class="now">{{ brl(h.min_bid) }}</div>
-          {% if h.appraisal_value %}<div class="was">Avaliação <s>{{ brl(h.appraisal_value) }}</s></div>
-          {% if h.appraisal_value > h.min_bid %}<div class="save">{{ brl(h.appraisal_value - h.min_bid) }} abaixo da avaliação</div>{% endif %}{% endif %}
+          {% if h.appraisal_value %}<div class="was">{{ 'Valor de mercado' if h.source_id == 'kwara' else 'Avaliação' }} <s>{{ brl(h.appraisal_value) }}</s></div>
+          {% if h.min_bid and h.appraisal_value > h.min_bid %}<div class="save">{{ brl(h.appraisal_value - h.min_bid) }} abaixo {{ 'do mercado' if h.source_id == 'kwara' else 'da avaliação' }}</div>{% endif %}{% endif %}
           <div class="pills">
+            {% if radar == 'eletronicos' %}<span class="pill p-des">Novo</span>{% else %}
             <span class="pill p-{{ h.risk_level or 'none' }}">{{ {'baixo': 'Risco baixo', 'medio': 'Risco médio', 'alto': 'Risco alto'}.get(h.risk_level, 'Risco a confirmar') }}</span>
             {% if h.occupied == 0 %}<span class="pill p-des">Desocupado</span>{% elif h.occupied == 1 %}<span class="pill p-ocu">Ocupado</span>{% endif %}
             {% if h.judicial == 0 %}<span class="pill p-none">Extrajudicial</span>{% elif h.judicial == 1 %}<span class="pill p-none">Judicial</span>{% endif %}
+            {% endif %}
           </div>
         </div>
         <div>
+          {% if radar == 'eletronicos' %}
+          <div class="facts">
+            <div><span>Aparelho</span>{{ klabel.get(h.kind, 'Eletrônico') }}{% if h.quantity %} · {{ h.quantity }} un.{% endif %}</div>
+            <div><span>Encerra</span>{{ fmt_date(h.auction_date) or '—' }}</div>
+            <div><span>Retirada</span>{{ h.city or '—' }}/{{ h.uf or '—' }}</div>
+            <div><span>Fonte</span>{{ src.get(h.source_id, h.source_id) }}</div>
+            <div style="grid-column: span 2"><span>Por que é novo</span>{{ (h.condition_proof or '—')|capitalize }}</div>
+          </div>
+          <a class="cta-link" href="{{ h.url }}">Ver lote →</a>
+          {% else %}
           <div class="facts">
             <div><span>Modalidade</span>{{ h.sale_type or '—' }}</div>
             <div><span>Data</span>{{ fmt_date(h.auction_date) or 'Venda contínua' }}</div>
@@ -298,15 +330,17 @@ p.back { font: 300 11.5pt/1.6 'Inter'; color: rgba(243,237,226,.78); max-width: 
           {% set reasons = h.risk_reasons|reject('equalto', 'Venda extrajudicial')|list %}
           {% if reasons %}<div class="why">{{ reasons[:2]|join(' · ') }}</div>{% endif %}
           <a class="cta-link" href="{{ h.url }}">Ver edital oficial →</a>
+          {% endif %}
         </div>
       </div>
     </article>
     {% endfor %}
   </div>
-  {{ folio(2 + nov + loop.index) }}
+  {%- set pg.n = pg.n + 1 -%}{{ folio(pg.n) }}
 </section>
 {% endfor %}
 
+{% if radar == 'imoveis' %}
 <!-- ============ RANKING ============ -->
 <section class="page light">
   <div class="pad">
@@ -326,13 +360,15 @@ p.back { font: 300 11.5pt/1.6 'Inter'; color: rgba(243,237,226,.78); max-width: 
       {% endfor %}
     </table>
   </div>
-  {{ folio(3 + nov + npairs) }}
+  {%- set pg.n = pg.n + 1 -%}{{ folio(pg.n) }}
 </section>
+{% endif %}
 
+{% if radar == 'veiculos' %}
 <!-- ============ AUTOMÓVEIS E MOTOS ============ -->
 <section class="page light">
   <div class="pad">
-    <div class="eyebrow" style="color: var(--gold-deep)">04 · Veículos</div>
+    <div class="eyebrow" style="color: var(--gold-deep)">01 · Veículos</div>
     <h2 class="section-title">Automóveis <em style="color: var(--gold-deep)">e motocicletas</em></h2>
     <p class="section-lead">{{ k.automoveis }} automóveis e {{ k.motos }} motocicletas em leilão na sua região. Conservados primeiro, dos mais novos para os mais antigos. Veículos são vendidos no estado em que se encontram: visite o pátio antes do lance.</p>
     <div class="sub-h">Automóveis</div>
@@ -340,14 +376,14 @@ p.back { font: 300 11.5pt/1.6 'Inter'; color: rgba(243,237,226,.78); max-width: 
     <div class="sub-h">Motocicletas</div>
     {% if motos %}{{ vtable(motos[:8]) }}{% else %}<p class="why">Nenhuma motocicleta aberta na região nesta edição.</p>{% endif %}
   </div>
-  {{ folio(4 + nov + npairs) }}
+  {%- set pg.n = pg.n + 1 -%}{{ folio(pg.n) }}
 </section>
 
 <!-- ============ AGENDA + PREÇO REALIZADO ============ -->
 <section class="page dark">
   <div class="pad">
     {% if agenda %}
-    <div class="eyebrow">05 · Agenda</div>
+    <div class="eyebrow">02 · Agenda</div>
     <h2 class="section-title">Leilões de veículos <em>na sua região</em></h2>
     <div class="agenda">
       {% for a in agenda %}
@@ -359,7 +395,7 @@ p.back { font: 300 11.5pt/1.6 'Inter'; color: rgba(243,237,226,.78); max-width: 
     </div>
     {% endif %}
     {% if realized %}
-    <div class="eyebrow" style="margin-top: {{ '11mm' if agenda else '0' }}">06 · Preço realizado</div>
+    <div class="eyebrow" style="margin-top: {{ '11mm' if agenda else '0' }}">03 · Preço realizado</div>
     <h2 class="section-title" style="font-size: 24pt">Quanto os lotes <em>realmente saíram</em></h2>
     <p class="section-lead">Leilões encerrados na região, com lance inicial e lance vencedor divulgados pelo leiloeiro. É a referência mais honesta de quanto disputar.</p>
     <table class="vt">
@@ -371,28 +407,61 @@ p.back { font: 300 11.5pt/1.6 'Inter'; color: rgba(243,237,226,.78); max-width: 
     </table>
     {% endif %}
   </div>
-  {{ folio(5 + nov + npairs) }}
+  {%- set pg.n = pg.n + 1 -%}{{ folio(pg.n) }}
 </section>
+{% endif %}
+
+{% if radar == 'eletronicos' %}
+<!-- ============ ELETRÔNICOS: LISTA ============ -->
+<section class="page light">
+  <div class="pad">
+    <div class="eyebrow" style="color: var(--gold-deep)">Lista completa</div>
+    <h2 class="section-title">Todos os eletrônicos <em style="color: var(--gold-deep)">novos</em></h2>
+    <p class="section-lead">Somente lotes com evidência de que são novos. Devoluções (logística reversa), usados, "no estado", vitrine e itens com defeito são descartados automaticamente.</p>
+    <table class="vt">
+      <tr><th>Item</th><th>Retirada</th><th class="r">Encerra</th><th class="r">Referência</th><th class="r">Lance atual</th></tr>
+      {% for v in items[:16] %}
+      <tr><td><a href="{{ v.url }}" style="color: inherit; text-decoration: none;"><div class="ttl">{{ v.title }}</div></a><div class="sub">{{ klabel.get(v.kind, 'Eletrônico') }} · {{ src.get(v.source_id, v.source_id) }} · {{ (v.condition_proof or '')|capitalize }}</div></td>
+        <td>{{ v.city or '—' }}/{{ v.uf or '—' }}</td><td class="r">{{ fmt_date(v.auction_date) or '—' }}</td>
+        <td class="r" style="color: var(--muted)">{{ brl(v.market_value or v.appraisal_value) if (v.market_value or v.appraisal_value) else '—' }}</td><td class="r" style="font-weight:600">{{ brl(v.min_bid) }}</td></tr>
+      {% else %}
+      <tr><td colspan="5" style="color: var(--muted); padding: 6mm 0">Nenhum eletrônico novo em leilão nesta edição. As fontes foram verificadas, mas todos os lotes encontrados eram devoluções, usados ou vendidos "no estado".</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+  {%- set pg.n = pg.n + 1 -%}{{ folio(pg.n) }}
+</section>
+{% endif %}
 
 <!-- ============ CONTRACAPA ============ -->
 <section class="page dark">
   {{ rings() }}
   <div class="pad" style="position:relative;">
-    <div class="brand"><i></i>Radar de Leilões</div>
+    <div class="brand"><i></i>Radar Leilões · {{ radar_nome }}</div>
     <div class="method" style="margin-top: 26mm; max-width: 150mm;">
-      <div><h5>Fontes oficiais</h5><p>Caixa, Detran-BA e leiloeiros oficiais identificados (Portal Zuk, Mega Leilões, ES Leilões). Cada lote leva ao edital original.</p></div>
+      {% if radar == 'eletronicos' %}
+      <div><h5>Só itens novos</h5><p>Entram apenas lotes lacrados, na caixa, sem uso ou de queima de estoque. Devoluções e usados são descartados.</p></div>
+      <div><h5>Fontes identificadas</h5><p>Leiloeiros oficiais (Kwara, Mega Leilões). Cada item leva ao lote original, com o local de retirada.</p></div>
+      <div><h5>Valor de mercado</h5><p>Quando a fonte informa o preço de varejo, o radar calcula o desconto do lance atual.</p></div>
+      {% elif radar == 'veiculos' %}
+      <div><h5>Editais oficiais</h5><p>Detran-BA (veículo a veículo), ES Leilões e Mega Leilões. Placa, chassi e Renavam nunca são guardados.</p></div>
+      <div><h5>Conservado ou sucata</h5><p>Cada veículo traz a classificação do edital. Visite o pátio antes do lance.</p></div>
+      <div><h5>Preço realizado</h5><p>Lances vencedores de leilões encerrados mostram quanto os lotes realmente valem.</p></div>
+      {% else %}
+      <div><h5>Fontes oficiais</h5><p>Caixa, Portal Zuk, Mega Leilões e ES Leilões, com leiloeiros identificados. Cada lote leva ao edital original.</p></div>
       <div><h5>Risco jurídico</h5><p>Ocupação, penhoras, indisponibilidades e ações citadas na matrícula. Cláusulas genéricas não contam como risco.</p></div>
-      <div><h5>Histórico diário</h5><p>Cada lote é acompanhado todos os dias: novidades, quedas de preço, encerramentos e preço realizado.</p></div>
+      <div><h5>Histórico diário</h5><p>Cada lote é acompanhado todos os dias: novidades, quedas de preço e encerramentos.</p></div>
+      {% endif %}
     </div>
     <h2 class="back" style="margin-top: 26mm">Receba só o que <em>combina</em> com você.</h2>
-    <p class="lead back" style="margin-top:8mm">Diga a cidade, a faixa de preço e o desconto mínimo que procura. O Radar avisa assim que um lote assim aparecer e prepara o relatório jurídico completo do lote em que você vai dar lance.</p>
+    <p class="lead back" style="margin-top:8mm">{% if radar == 'eletronicos' %}Diga o aparelho, a marca e quanto quer pagar. O Radar avisa assim que um lote novo assim aparecer.{% elif radar == 'veiculos' %}Diga o modelo, o ano e a região que procura. O Radar avisa assim que um carro ou moto assim entrar em leilão.{% else %}Diga a cidade, a faixa de preço e o desconto mínimo que procura. O Radar avisa assim que um lote assim aparecer e prepara o relatório jurídico completo do lote em que você vai dar lance.{% endif %}</p>
     {% if contact %}<a class="button" href="mailto:{{ contact }}?subject=Quero%20meu%20perfil%20no%20Radar%20de%20Leil%C3%B5es">Configurar meu perfil</a>{% endif %}
   </div>
   <div class="fine">
-    <p><b>Fontes desta edição:</b> {% for s, n in k.by_src.items() %}{{ src.get(s, s) }} ({{ '{:,}'.format(n).replace(',', '.') }}){% if not loop.last %} · {% endif %}{% endfor %} lotes monitorados. Dados captados em {{ hoje }}.</p>
+    <p><b>{{ marca }}.</b> Fontes: {% for s, n in k.by_src.items() %}{{ src.get(s, s) }}{% if not loop.last %} · {% endif %}{% endfor %}. Dados captados em {{ hoje }}.</p>
     <p style="margin-top:2.5mm">{{ disclaimer }} Preços e datas podem mudar: confira sempre o edital oficial e a matrícula atualizada.</p>
   </div>
-  {{ folio(6 + nov + npairs) }}
+  {%- set pg.n = pg.n + 1 -%}{{ folio(pg.n) }}
 </section>
 </body>
 </html>

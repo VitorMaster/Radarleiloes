@@ -8,14 +8,15 @@ from __future__ import annotations
 import re
 from typing import Iterable
 
-from ..models import ImovelInfo, Lot, VeiculoInfo
+from ..eletronicos import kind_of, new_evidence
+from ..models import EletronicoInfo, ImovelInfo, Lot, VeiculoInfo
 from ..vehicles import classify
 from .base import Source
 from .caixa import parse_brl
 from .htmlutil import iso_dates, legal_signal_summary, page_lines, split_blocks, strip_names, text
 
 LIST_URL = "https://www.megaleiloes.com.br/{uf}?pagina={page}"
-CATEGORIES = {"imoveis": "imovel", "veiculos": "veiculo"}
+CATEGORIES = {"imoveis": "imovel", "veiculos": "veiculo", "bens-de-consumo": "eletronico"}
 
 BANKS = {
     "itau": "Itaú Unibanco", "bradesco": "Bradesco", "santander": "Santander", "caixa": "Caixa",
@@ -47,6 +48,7 @@ def _neighborhood(title: str, city: str | None) -> str | None:
 
 
 class MegaSource(Source):
+    include_electronics = False  # eletrônicos têm um radar próprio (MegaEletronicosSource)
     id = "mega"
     name = "Mega Leilões — imóveis e veículos"
     layer = 1
@@ -110,7 +112,9 @@ class MegaSource(Source):
             url, seg, subcat, lot_uf, _, title = m.groups()
             category = CATEGORIES.get(seg)
             if not category:
-                continue  # bens de consumo, animais etc. ficam fora do recorte
+                continue  # animais, máquinas etc. ficam fora do recorte
+            if category == "eletronico" and not self.include_electronics:
+                continue
             title = text(title)
             ext = re.search(r'card-number[^>]*>([A-Z]?\d+)<', block)
             ext_id = ext.group(1) if ext else url.rsplit("-", 1)[-1]
@@ -138,8 +142,13 @@ class MegaSource(Source):
                 appraisal = round(values[-1] / (1 - int(down.group(1)) / 100), 2)
 
             photo = re.search(r'data-bg="([^"]+)"', block)
-            imovel = veiculo = None
-            if category == "imovel":
+            imovel = veiculo = eletronico = None
+            if category == "eletronico":
+                kind = kind_of(title)
+                if not kind:
+                    continue
+                eletronico = EletronicoInfo(kind=kind, condition="novo")
+            elif category == "imovel":
                 area = re.search(r"([\d.,]+)\s*m²", title)
                 imovel = ImovelInfo(property_type=subcat.replace("-", " "), judicial=judicial,
                                     area_privativa_m2=parse_brl(area.group(1)) if area and "," in area.group(1)
@@ -157,5 +166,41 @@ class MegaSource(Source):
                 appraisal_value=appraisal, min_bid=values[idx], city=city, uf=lot_uf.upper(),
                 neighborhood=_neighborhood(title, city),
                 description=f"{title}. {kind}. " + "; ".join(f"{text(d)} {v.strip()}" for d, v in inst),
-                photo_url=photo.group(1) if photo else None, imovel=imovel, veiculo=veiculo,
+                photo_url=photo.group(1) if photo and "no-image" not in photo.group(1) else None,
+                imovel=imovel, veiculo=veiculo, eletronico=eletronico,
             )
+
+
+class MegaEletronicosSource(MegaSource):
+    may_be_empty = True  # o filtro "só novos" pode, legitimamente, não deixar nada
+    """Eletrônicos do Mega Leilões (bens de consumo), com a regra do radar: só itens novos."""
+    id = "mega_eletronicos"
+    name = "Mega Leilões — eletrônicos novos"
+    scopes = ("BR",)
+    include_electronics = True
+    LISTINGS = ("https://www.megaleiloes.com.br/bens-de-consumo/eletronicos?pagina={page}",
+                "https://www.megaleiloes.com.br/bens-de-consumo?pagina={page}")
+
+    def fetch(self, scope: str) -> Iterable[Lot]:
+        found: dict[str, Lot] = {}
+        for url in self.LISTINGS:
+            page, last = 1, 1
+            while page <= min(last, 5):
+                html = self.get(url.format(page=page)).text
+                m = re.search(r"Página <b>\d+</b> de <b>(\d+)</b>", html)
+                last = int(m.group(1)) if m else 1
+                for lot in self.parse(html, None):
+                    if lot.category == "eletronico":
+                        found.setdefault(lot.external_id, lot)
+                page += 1
+        out = []
+        for lot in found.values():
+            try:
+                self.enrich(lot, self.get(lot.url).text)
+            except Exception as exc:  # noqa: BLE001
+                print(f"  mega_eletronicos: detalhe indisponível para {lot.external_id}: {exc}")
+            is_new, proof = new_evidence(lot.title, lot.description or "")
+            if is_new:  # regra única do radar de eletrônicos
+                lot.eletronico.condition_proof = proof
+                out.append(lot)
+        return out

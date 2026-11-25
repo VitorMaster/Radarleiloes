@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS lots (
     id               INTEGER PRIMARY KEY,
     source_id        TEXT NOT NULL REFERENCES sources(id),
     external_id      TEXT NOT NULL,            -- id do lote na fonte
-    category         TEXT NOT NULL CHECK (category IN ('imovel','veiculo')),
+    category         TEXT NOT NULL CHECK (category IN ('imovel','veiculo','eletronico')),
     title            TEXT,
     url              TEXT NOT NULL,            -- link da fonte (sempre guardado)
     leiloeiro        TEXT,
@@ -61,6 +61,17 @@ CREATE TABLE IF NOT EXISTS lot_imovel (
     iptu_debt           REAL,
     condo_debt          REAL,
     encumbrances        TEXT       -- ônus/pendências na matrícula (texto)
+);
+
+CREATE TABLE IF NOT EXISTS lot_eletronico (
+    lot_id          INTEGER PRIMARY KEY REFERENCES lots(id) ON DELETE CASCADE,
+    kind            TEXT,      -- celular | notebook | computador | tablet | tv | console | monitor | audio | outro
+    brand           TEXT,
+    model           TEXT,
+    quantity        INTEGER,
+    market_value    REAL,      -- valor de mercado/varejo informado pela fonte
+    condition       TEXT,      -- sempre 'novo' (regra do radar)
+    condition_proof TEXT       -- por que o lote foi considerado novo (trecho da fonte)
 );
 
 CREATE TABLE IF NOT EXISTS lot_veiculo (
@@ -136,7 +147,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     name             TEXT NOT NULL,
     email            TEXT,
     whatsapp         TEXT,
-    category         TEXT CHECK (category IN ('imovel','veiculo')),
+    category         TEXT CHECK (category IN ('imovel','veiculo','eletronico')),
     ufs              TEXT,             -- CSV: 'ES,MG'
     cities           TEXT,             -- CSV opcional
     min_discount_pct REAL,

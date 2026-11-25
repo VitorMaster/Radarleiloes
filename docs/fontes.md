@@ -31,3 +31,12 @@ Antes de pôr qualquer captador em produção, confira cada item abaixo e regist
 | 2 | Detran-MG | site não respondeu ao teste | verificar |
 | 3 | TJES, TJMG, TJBA (leiloeiros nomeados) | diários da Justiça | próximo |
 | 4 | Frazão e leiloeiros regionais | listagens públicas | próximo |
+
+## Radar de eletrônicos (só itens novos)
+
+| Fonte | Como captamos | Status |
+|---|---|---|
+| **Kwara** (leiloeiros JUCESP; queima de estoque de varejo/indústria) | categorias públicas + página do item; logística reversa e "no estado" descartados | ✅ ao vivo |
+| **Mega Leilões — bens de consumo** | listagem pública + detalhe, com o mesmo filtro | ✅ ao vivo |
+| **Receita Federal (SLE)** — mercadorias apreendidas, em geral novas | o portal público usa uma interface interna; o acesso automatizado foi bloqueado pela política de permissões desta sessão | ⏸ aguardando autorização |
+| Correios (Licitações-e) | exige login | ⛔ |

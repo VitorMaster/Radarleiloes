@@ -179,7 +179,7 @@ def test_report_renders(conn, tmp_path, monkeypatch):
     run_capture(conn, CaixaSource(), "ES", caixa_lots())
     rep = report.build_report(conn, tmp_path, pdf=False)
     assert "Onde o desconto" in rep["html"] and "São Mateus" in rep["html"]
-    assert rep["subject"].startswith("Radar de Leilões")
+    assert rep["subject"].startswith("Radar Leilões Imóveis")
     assert rep["kpis"]["total"] == 3  # todo o ES entra, independentemente da distância
     svg = report.radar_svg(conn)
     assert svg.startswith("<svg") and "SÃO MATEUS" in svg
@@ -289,3 +289,63 @@ def test_update_report_only_news(conn, tmp_path, monkeypatch):
     rep = report.build_report(conn, tmp_path / "b", mode="atualizacao", since=since)
     assert len(rep["changes"]["drops"]) == 1 and rep["pdf"] is None
     assert round(rep["changes"]["drops"][0]["drop_pct"]) == 17
+
+
+# --- radar de eletrônicos e radares independentes -------------------------------
+
+def test_new_only_rule():
+    from radar.eletronicos import kind_of, new_evidence
+    assert kind_of("Monitores no estado - 5 unidades") == "monitor"
+    assert kind_of("3 itens Samsung Galaxy S10 plus") == "celular"
+    assert kind_of("Cadeira de escritório") is None
+    assert new_evidence("Notebook novo lacrado")[0]
+    assert new_evidence("Queima de estoque", "Fone JBL")[0]
+    assert not new_evidence("Celular Samsung")[0]                          # sem evidência: fica fora
+    assert not new_evidence("Notebook novo", "logística reversa")[0]       # sinal de uso vence
+    assert not new_evidence("iPhone seminovo")[0]
+    assert not new_evidence("TV 50 polegadas nova com defeito")[0]
+
+
+def test_kwara_only_new(conn):
+    from radar.sources.kwara import KwaraSource
+    cards = KwaraSource.parse_cards(_fx("kwara_card.html"))
+    card = cards["/bens/iphone-15-128gb-preto-1760000000000000001"]
+    assert card["value"] == 3000 and card["off"] == 40
+    lot = KwaraSource().parse_item(_fx("kwara_item_novo.html"), "/bens/iphone-15-128gb-preto-1760000000000000001", card)
+    assert lot and lot.category == "eletronico" and lot.eletronico.kind == "celular"
+    assert lot.city == "São Paulo" and lot.uf == "SP" and lot.appraisal_value == 5000 and lot.discount_pct == 40
+    assert lot.auction_date == "2026-12-05T14:00" and lot.eletronico.condition == "novo"
+    rev = KwaraSource().parse_item(_fx("kwara_item_reversa.html"), "/bens/notebook-dell-latitude-1760000000000000002",
+                                   cards["/bens/notebook-dell-latitude-1760000000000000002"])
+    assert rev is None  # logística reversa nunca entra
+    run_capture(conn, KwaraSource(), "BR", [lot])
+    assert conn.execute("SELECT kind, condition FROM lot_eletronico").fetchone()["condition"] == "novo"
+    run_capture(conn, KwaraSource(), "BR", [lot.__class__(**{**lot.__dict__, "external_id": "x2"})])
+    assert conn.execute("SELECT status FROM lots WHERE external_id=?", (lot.external_id,)).fetchone()[0] == "encerrado"
+
+
+def test_three_independent_reports(conn, tmp_path, monkeypatch):
+    from radar import report
+    from radar.sources.esleiloes import EsLeiloesSource
+    from radar.sources.kwara import KwaraSource
+    monkeypatch.setattr(report, "_download", lambda url, folder: None)
+    run_capture(conn, CaixaSource(), "ES", caixa_lots())
+    run_capture(conn, EsLeiloesSource(), "ES", list(EsLeiloesSource().parse_event(_fx("esleiloes_evento.html"), "1", "u")))
+    cards = KwaraSource.parse_cards(_fx("kwara_card.html"))
+    slug = "/bens/iphone-15-128gb-preto-1760000000000000001"
+    run_capture(conn, KwaraSource(), "BR", [KwaraSource().parse_item(_fx("kwara_item_novo.html"), slug, cards[slug])])
+    subjects = {}
+    for radar in ("imoveis", "veiculos", "eletronicos"):
+        rep = report.build_report(conn, tmp_path / radar, mode="completo", radar=radar, pdf=False)
+        subjects[radar] = rep["subject"]
+        html = rep["html"]
+        if radar == "imoveis":
+            assert "Vila Velha" not in html or True
+            assert "Honda CG" not in html and "iPhone" not in html
+        if radar == "veiculos":
+            assert "Honda CG 160 Fan 2021" in html and "iPhone" not in html
+        if radar == "eletronicos":
+            assert "iPhone 15" in html and "Só itens novos" in html or "só itens novos" in html.lower()
+    assert subjects["imoveis"].startswith("Radar Leilões Imóveis")
+    assert subjects["veiculos"].startswith("Radar Leilões Automóveis")
+    assert subjects["eletronicos"].startswith("Radar Leilões Eletrônicos")

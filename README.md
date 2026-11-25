@@ -52,6 +52,21 @@ Cron sugerido (todo dia às 6h): `0 6 * * * cd /caminho && .venv/bin/radar daily
 Variáveis de ambiente: `RADAR_DB` (padrão `data/radar.db`), `RADAR_MODEL`, `RADAR_CONTACT_EMAIL` (botão do relatório),
 `ANTHROPIC_API_KEY`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` e `SMTP_FROM`.
 
+## Três ferramentas independentes
+
+| Radar | Fontes | Recorte | E-mail |
+|---|---|---|---|
+| **Radar Leilões Imóveis** | Caixa, Portal Zuk, Mega Leilões | ES inteiro + entorno de São Mateus (MG/BA) | próprio (`RADAR_EMAIL_IMOVEIS`) |
+| **Radar Leilões Automóveis** | Detran-BA (veículo a veículo), ES Leilões, Mega Leilões | ES inteiro + entorno de São Mateus | próprio (`RADAR_EMAIL_VEICULOS`) |
+| **Radar Leilões Eletrônicos** | Kwara, Mega Leilões (bens de consumo) | todo o Brasil, **só itens novos** | próprio (`RADAR_EMAIL_ELETRONICOS`) |
+
+A captura roda uma vez por dia para todas as fontes; cada radar gera o seu relatório, o seu PDF e o seu e-mail
+(`data/relatorio/<radar>/`). Sem `RADAR_EMAIL_*`, todos vão para `RADAR_EMAIL`/`RADAR_CONTACT_EMAIL`.
+
+**Regra "só novos" (eletrônicos, `radar/eletronicos.py`):** o lote precisa de evidência positiva (novo, lacrado,
+na caixa, sem uso, queima de estoque) e nenhum sinal de uso (logística reversa, "no estado", seminovo, vitrine,
+defeito, avaria, bloqueado...). Na dúvida, fica de fora.
+
 ## Rotina diária e envio automático
 
 | Dia | Modo | O que faz | E-mail |
@@ -64,6 +79,7 @@ Variáveis de ambiente: `RADAR_DB` (padrão `data/radar.db`), `RADAR_MODEL`, `RA
 ```bash
 radar rotina                     # escolhe o modo pelo dia (horário de Brasília)
 radar rotina --modo semanal      # força um modo
+radar rotina --radar eletronicos # só um dos radares
 scripts/rotina_agendada.sh       # versão da tarefa agendada: restaura e salva o histórico no branch radar-dados
 ```
 

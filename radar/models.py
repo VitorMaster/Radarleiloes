@@ -6,7 +6,7 @@ import json
 from dataclasses import asdict, dataclass
 from typing import Literal
 
-Category = Literal["imovel", "veiculo"]
+Category = Literal["imovel", "veiculo", "eletronico"]
 
 
 @dataclass
@@ -40,6 +40,17 @@ class VeiculoInfo:
 
 
 @dataclass
+class EletronicoInfo:
+    kind: str | None = None
+    brand: str | None = None
+    model: str | None = None
+    quantity: int | None = None
+    market_value: float | None = None
+    condition: str | None = "novo"
+    condition_proof: str | None = None
+
+
+@dataclass
 class Lot:
     source_id: str
     external_id: str
@@ -60,6 +71,7 @@ class Lot:
     description: str | None = None
     imovel: ImovelInfo | None = None
     veiculo: VeiculoInfo | None = None
+    eletronico: EletronicoInfo | None = None
     photo_url: str | None = None
     lot_count: int | None = None
     final_price: float | None = None

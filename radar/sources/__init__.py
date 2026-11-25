@@ -8,7 +8,8 @@ from .base import Source
 from .caixa import CaixaSource
 from .detran_ba import DetranBASource
 from .esleiloes import EsLeiloesSource
-from .mega import MegaSource
+from .kwara import KwaraSource
+from .mega import MegaEletronicosSource, MegaSource
 from .zuk import ZukSource
 
 REGISTRY: dict[str, type[Source]] = {
@@ -17,6 +18,15 @@ REGISTRY: dict[str, type[Source]] = {
     MegaSource.id: MegaSource,
     DetranBASource.id: DetranBASource,
     EsLeiloesSource.id: EsLeiloesSource,
+    KwaraSource.id: KwaraSource,
+    MegaEletronicosSource.id: MegaEletronicosSource,
+}
+
+# Fontes por radar (cada radar é uma ferramenta independente, com e-mail próprio)
+RADAR_SOURCES = {
+    "imoveis": ["caixa", "zuk", "mega", "esleiloes"],
+    "veiculos": ["detran_ba", "mega", "esleiloes"],
+    "eletronicos": ["kwara", "mega_eletronicos"],
 }
 
 

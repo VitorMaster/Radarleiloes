@@ -126,6 +126,13 @@ def upsert_lot(conn: sqlite3.Connection, lot: Lot, ts: str) -> tuple[int, str | 
                 ON CONFLICT(lot_id) DO UPDATE SET {", ".join(f"{k}=excluded.{k}" for k in d)}""",
             (lot_id, *d.values()),
         )
+    if lot.eletronico:
+        d = asdict(lot.eletronico)
+        conn.execute(
+            f"""INSERT INTO lot_eletronico (lot_id, {", ".join(d)}) VALUES (?, {", ".join("?" * len(d))})
+                ON CONFLICT(lot_id) DO UPDATE SET {", ".join(f"{k}=excluded.{k}" for k in d)}""",
+            (lot_id, *d.values()),
+        )
     if lot.veiculo:
         d = asdict(lot.veiculo)
         conn.execute(
@@ -151,7 +158,7 @@ def run_capture(conn: sqlite3.Connection, source: Source, scope: str,
     stats = {"seen": 0, "new": 0, "changed": 0, "closed": 0}
     try:
         batch = list(lots) if lots is not None else list(source.fetch(scope))
-        if not batch:
+        if not batch and not getattr(source, "may_be_empty", False):
             raise RuntimeError("Fonte retornou zero lotes — possível mudança no site ou bloqueio.")
         seen_ids: list[int] = []
         for lot in batch:
@@ -164,11 +171,12 @@ def run_capture(conn: sqlite3.Connection, source: Source, scope: str,
                 stats["changed"] += 1
 
         # Lotes abertos desta fonte/escopo que não apareceram hoje: saíram da fonte.
-        placeholders = ",".join("?" * len(seen_ids))
+        placeholders = ",".join("?" * len(seen_ids)) or "NULL"
+        uf_filter = "" if scope == "BR" else "AND uf=?"  # fontes nacionais (eletrônicos) não filtram UF
         gone = conn.execute(
             f"""SELECT id, min_bid, appraisal_value FROM lots
-                WHERE source_id=? AND uf=? AND status='aberto' AND id NOT IN ({placeholders})""",
-            (source.id, scope, *seen_ids),
+                WHERE source_id=? {uf_filter} AND status='aberto' AND id NOT IN ({placeholders})""",
+            (source.id, *([] if scope == "BR" else [scope]), *seen_ids),
         ).fetchall()
         for g in gone:
             conn.execute("UPDATE lots SET status='encerrado', closed_at=? WHERE id=?", (ts, g["id"]))

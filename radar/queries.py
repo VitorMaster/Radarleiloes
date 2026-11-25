@@ -13,13 +13,15 @@ SELECT l.*, s.name AS source_name, s.verified AS source_verified,
        c.grade, c.justification, c.evidence, c.method AS grade_method,
        r.level AS risk_level, r.reasons AS risk_reasons, r.needs_review, r.human_reviewed,
        i.property_type, i.area_total_m2, i.area_privativa_m2, i.bedrooms, i.occupied, i.judicial,
-       v.brand, v.model, v.year, v.classification
+       v.brand, v.model, v.year, v.classification, v.vehicle_type,
+       e.kind, e.market_value, e.condition_proof, e.quantity
 FROM lots l
 JOIN sources s ON s.id = l.source_id
 LEFT JOIN conservation c ON c.lot_id = l.id
 LEFT JOIN legal_risk r ON r.lot_id = l.id
 LEFT JOIN lot_imovel i ON i.lot_id = l.id
 LEFT JOIN lot_veiculo v ON v.lot_id = l.id
+LEFT JOIN lot_eletronico e ON e.lot_id = l.id
 """
 
 
