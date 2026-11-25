@@ -50,6 +50,27 @@ Cron sugerido (todo dia às 6h): `0 6 * * * cd /caminho && .venv/bin/radar daily
 Variáveis de ambiente: `RADAR_DB` (padrão `data/radar.db`), `RADAR_MODEL`, `RADAR_CONTACT_EMAIL` (botão do relatório),
 `ANTHROPIC_API_KEY`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` e `SMTP_FROM`.
 
+## Parâmetro geográfico do cliente
+
+O relatório cobre **todo o Espírito Santo** e, em **MG e BA, só os municípios a até 300 km de São Mateus**
+(linha reta; por estrada a distância costuma ser 20–35% maior). Cada lote guarda `distance_km` e `in_area`.
+A captura continua completa: o filtro vale para o relatório e os destaques, então dá para mudar a região sem recapturar.
+
+```bash
+export RADAR_CIDADE_BASE="São Mateus" RADAR_UF_BASE=ES RADAR_RAIO_KM=300 RADAR_UFS_INTEIRAS=ES
+radar regiao      # recalcula distância e área de todos os lotes
+radar report      # e-mail + PDF (data/relatorio/)
+```
+
+Coordenadas dos municípios: IBGE, via conjunto aberto `kelvins/municipios-brasileiros` (MIT), em `radar/data/`.
+
+## Relatório (e-mail + PDF)
+
+- `radar/templates/report.html`: e-mail ônix e dourado, em tabelas com estilos inline (Gmail/Outlook/celular), com fotos inline.
+- `radar/templates/report_pdf.html`: PDF A4 de 9 páginas (capa, radar da região, 8 destaques, ranking, agenda de veículos, método e contracapa).
+  Fontes embutidas: Playfair Display e Inter (licença OFL, em `radar/assets/fonts/`).
+- O PDF é renderizado pelo Chromium do Playwright (`radar/assets/render_pdf.js`), por isso precisa de Node.js com `playwright`.
+
 ## Para adicionar uma fonte
 
 1. Crie `radar/sources/<nome>.py` com uma classe `Source` que implementa `fetch(scope)` e devolve objetos `Lot`.

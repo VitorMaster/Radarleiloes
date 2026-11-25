@@ -29,4 +29,19 @@ def connect(path: str | Path | None = None) -> sqlite3.Connection:
 def init_schema(conn: sqlite3.Connection) -> None:
     sql = resources.files("radar").joinpath("schema.sql").read_text(encoding="utf-8")
     conn.executescript(sql)
+    _migrate(conn)
     conn.commit()
+
+
+MIGRATIONS = {  # colunas acrescentadas depois da 1ª versão do esquema
+    "lots": {"comitente": "TEXT", "photo_url": "TEXT", "lot_count": "INTEGER",
+             "distance_km": "REAL", "in_area": "INTEGER"},
+}
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    for table, cols in MIGRATIONS.items():
+        have = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+        for col, typ in cols.items():
+            if col not in have:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {typ}")

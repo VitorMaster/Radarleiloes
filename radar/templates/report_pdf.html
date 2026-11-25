@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Radar de Leilões — {{ edicao }}</title>
+<style>
+{{ fonts|safe }}
+@page { size: A4; margin: 0; }
+:root {
+  --onyx: #0b0c0f; --graphite: #15171c; --slate: #1e2128; --ivory: #f3ede2; --paper: #f7f4ee;
+  --gold: #d4af6a; --gold-deep: #b08d4c; --ink: #14161a; --muted: #7d828c; --line: #e2ddd2;
+  --green: #2f8f5b; --amber: #b7791f; --red: #b6412f;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--onyx); }
+body { font-family: 'Inter', Arial, sans-serif; color: var(--ink); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.page { width: 210mm; height: 297mm; position: relative; overflow: hidden; page-break-after: always; break-after: page; }
+.page:last-child { page-break-after: auto; break-after: auto; }
+.dark { background: var(--onyx); color: var(--ivory); }
+.light { background: var(--paper); color: var(--ink); }
+.serif { font-family: 'Playfair Display', Georgia, serif; }
+.eyebrow { font: 600 7.5pt/1 'Inter'; letter-spacing: .32em; text-transform: uppercase; color: var(--gold); }
+.rule { height: 1px; background: currentColor; opacity: .18; }
+.pad { padding: 18mm 18mm 0; }
+.folio { position: absolute; left: 18mm; right: 18mm; bottom: 10mm; display: flex; justify-content: space-between;
+         font: 500 7pt/1 'Inter'; letter-spacing: .18em; text-transform: uppercase; opacity: .55; }
+.folio b { color: var(--gold); opacity: 1; }
+
+/* ---------- capa ---------- */
+.cover-rings { position: absolute; right: -78mm; top: 34mm; width: 230mm; height: 230mm; opacity: .9; }
+.cover-top { display: flex; justify-content: space-between; align-items: center; }
+.brand { display: flex; align-items: center; gap: 3mm; font: 700 9pt/1 'Inter'; letter-spacing: .38em; text-transform: uppercase; }
+.brand i { width: 3.2mm; height: 3.2mm; border-radius: 50%; border: 1.2px solid var(--gold); position: relative; display: inline-block; }
+.brand i::after { content: ''; position: absolute; inset: .8mm; border-radius: 50%; background: var(--gold); }
+.cover h1 { font: 900 47pt/0.98 'Playfair Display'; letter-spacing: -.01em; margin-top: 52mm; max-width: 150mm; }
+.cover h1 em { font-style: italic; font-weight: 400; color: var(--gold); }
+.cover .lead { font: 300 12pt/1.55 'Inter'; color: rgba(243,237,226,.78); max-width: 118mm; margin-top: 9mm; }
+.cover .lead b { font-weight: 600; color: var(--ivory); }
+.area-tag { display: inline-flex; gap: 4mm; margin-top: 9mm; border: 1px solid rgba(212,175,106,.55); border-radius: 30px;
+            padding: 3mm 5mm; font: 500 8pt/1 'Inter'; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); }
+.kpi-band { position: absolute; left: 18mm; right: 18mm; bottom: 24mm; display: grid; grid-template-columns: repeat(4, 1fr);
+            border-top: 1px solid rgba(243,237,226,.18); }
+.kpi { padding: 7mm 4mm 0 0; }
+.kpi + .kpi { padding-left: 5mm; border-left: 1px solid rgba(243,237,226,.12); }
+.kpi .v { font: 700 26pt/1 'Playfair Display'; color: var(--ivory); white-space: nowrap; }
+.kpi .v small { font-size: 13pt; color: var(--gold); }
+.kpi .l { font: 500 7pt/1.4 'Inter'; letter-spacing: .16em; text-transform: uppercase; color: rgba(243,237,226,.55); margin-top: 3mm; }
+
+/* ---------- área / radar ---------- */
+.section-title { font: 700 30pt/1.05 'Playfair Display'; margin-top: 5mm; }
+.section-title em { font-style: italic; font-weight: 400; color: var(--gold); }
+.section-lead { font: 300 10.5pt/1.6 'Inter'; margin-top: 5mm; max-width: 150mm; opacity: .8; }
+.radar-wrap { display: grid; grid-template-columns: 112mm 1fr; gap: 8mm; margin-top: 9mm; align-items: start; }
+.radar-wrap svg { width: 112mm; height: 112mm; }
+.legend { display: flex; gap: 5mm; margin-top: 3mm; font: 500 7.5pt/1 'Inter'; letter-spacing: .1em; text-transform: uppercase; opacity: .75; }
+.legend span::before { content: ''; display: inline-block; width: 2.6mm; height: 2.6mm; border-radius: 50%; margin-right: 1.8mm; vertical-align: -1px; background: var(--c); }
+.uf-stack .uf { padding: 4.2mm 0; border-bottom: 1px solid rgba(243,237,226,.12); }
+.uf-stack .uf:first-child { border-top: 1px solid rgba(243,237,226,.12); }
+.uf .n { font: 700 24pt/1 'Playfair Display'; }
+.uf .t { font: 600 8pt/1.3 'Inter'; letter-spacing: .14em; text-transform: uppercase; margin-top: 1.5mm; }
+.uf .s { font: 400 8pt/1.4 'Inter'; opacity: .6; margin-top: 1mm; }
+.cities { width: 100%; border-collapse: collapse; margin-top: 8mm; font: 400 8.4pt/1.3 'Inter'; }
+.cities th { font: 600 6.8pt/1 'Inter'; letter-spacing: .16em; text-transform: uppercase; text-align: left; padding: 0 0 2.5mm; color: var(--gold); }
+.cities td { padding: 2.3mm 0; border-top: 1px solid rgba(243,237,226,.1); }
+.cities .r { text-align: right; }
+.dot { display: inline-block; width: 2.2mm; height: 2.2mm; border-radius: 50%; margin-right: 2mm; vertical-align: 0; }
+
+/* ---------- destaques ---------- */
+.hl-head { display: flex; justify-content: space-between; align-items: flex-end; }
+.hl-head h2 { font: 700 24pt/1 'Playfair Display'; }
+.hl-head h2 em { font-style: italic; font-weight: 400; color: var(--gold-deep); }
+.card { margin-top: 7mm; background: #fff; border-radius: 3mm; overflow: hidden; box-shadow: 0 1mm 4mm rgba(20,22,26,.06); position: relative; }
+.card .photo { height: 62mm; background: var(--slate) center/cover no-repeat; position: relative; }
+.card .photo::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(11,12,15,.45) 0%, rgba(11,12,15,0) 26%, rgba(11,12,15,0) 45%, rgba(11,12,15,.75) 100%); }
+.card .nophoto { background: radial-gradient(circle at 70% 40%, rgba(212,175,106,.28), rgba(212,175,106,0) 55%), repeating-radial-gradient(circle at 70% 40%, rgba(243,237,226,.08) 0 1px, transparent 1px 9mm), var(--onyx); }
+.card .nophoto-tag { position: absolute; left: 6mm; top: 13mm; z-index: 2; font: 600 6.5pt/1 'Inter'; letter-spacing: .2em; text-transform: uppercase; color: rgba(243,237,226,.5); }
+.card .idx { position: absolute; top: 5mm; left: 6mm; z-index: 2; font: 400 9.5pt/1 'Playfair Display'; font-style: italic; color: var(--ivory); letter-spacing: .05em; text-shadow: 0 1px 3px rgba(0,0,0,.5); }
+.card .disc { position: absolute; top: 0; right: 7mm; z-index: 2; background: var(--gold); color: var(--onyx); padding: 5mm 4mm 3.5mm; text-align: center; border-radius: 0 0 2mm 2mm; }
+.card .disc b { display: block; font: 900 22pt/1 'Playfair Display'; }
+.card .disc span { font: 700 6pt/1 'Inter'; letter-spacing: .2em; text-transform: uppercase; }
+.card .over { position: absolute; left: 6mm; bottom: 5mm; z-index: 2; color: var(--ivory); }
+.card .over h3 { font: 700 17pt/1.1 'Playfair Display'; }
+.card .over p { font: 400 8.5pt/1.3 'Inter'; opacity: .85; margin-top: 1.5mm; }
+.card .body { display: grid; grid-template-columns: 62mm 1fr; gap: 6mm; padding: 6mm; }
+.price .label { font: 600 6.8pt/1 'Inter'; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); }
+.price .now { font: 700 20pt/1.1 'Playfair Display'; color: var(--ink); margin-top: 2mm; }
+.price .was { font: 400 8.5pt/1.3 'Inter'; color: var(--muted); margin-top: 1.5mm; }
+.price .was s { color: var(--muted); }
+.price .save { margin-top: 3mm; font: 600 8.5pt/1.3 'Inter'; color: var(--green); }
+.facts { display: grid; grid-template-columns: 1fr 1fr; gap: 2.6mm 5mm; font: 400 8.2pt/1.3 'Inter'; }
+.facts div span { display: block; font: 600 6.3pt/1 'Inter'; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin-bottom: 1mm; }
+.pills { display: flex; flex-wrap: wrap; gap: 2mm; margin-top: 3.5mm; }
+.pill { font: 600 6.8pt/1 'Inter'; letter-spacing: .06em; padding: 1.6mm 2.6mm; border-radius: 20px; }
+.p-baixo, .p-des { background: #e5f3ea; color: var(--green); }
+.p-medio, .p-ocu { background: #fbf0dc; color: var(--amber); }
+.p-alto { background: #f8e3df; color: var(--red); }
+.p-sem_info, .p-none { background: #eceae4; color: #5f636b; }
+.why { font: 400 7.6pt/1.4 'Inter'; color: var(--muted); margin-top: 2.5mm; }
+.cta-link { display: inline-block; margin-top: 3.5mm; font: 700 7.6pt/1 'Inter'; letter-spacing: .14em; text-transform: uppercase; color: var(--ink); text-decoration: none; border-bottom: 1.5px solid var(--gold); padding-bottom: 1mm; }
+
+/* ---------- ranking ---------- */
+.rank { width: 100%; border-collapse: collapse; margin-top: 8mm; font: 400 8.4pt/1.3 'Inter'; }
+.rank th { font: 600 6.6pt/1 'Inter'; letter-spacing: .16em; text-transform: uppercase; text-align: left; color: var(--muted); padding-bottom: 3mm; border-bottom: 1.5px solid var(--ink); }
+.rank td { padding: 2.4mm 0; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.rank .r { text-align: right; white-space: nowrap; padding-left: 3mm; }
+.rank .pos { font: 400 11pt/1 'Playfair Display'; font-style: italic; color: var(--gold-deep); width: 9mm; }
+.rank .ttl { font-weight: 600; }
+.rank .sub { font-size: 7.4pt; color: var(--muted); margin-top: .8mm; }
+.rank .d { font: 700 12pt/1 'Playfair Display'; color: var(--gold-deep); }
+.bar { height: 1.4mm; background: #ece7dc; border-radius: 2mm; margin-top: 1.4mm; width: 26mm; margin-left: auto; }
+.bar i { display: block; height: 100%; background: var(--gold); border-radius: 2mm; }
+
+/* ---------- agenda / método / contracapa ---------- */
+.agenda { margin-top: 7mm; }
+.ev { display: grid; grid-template-columns: 22mm 1fr; gap: 5mm; padding: 4.5mm 0; border-top: 1px solid rgba(243,237,226,.12); }
+.ev .date { border: 1px solid rgba(212,175,106,.6); border-radius: 2mm; text-align: center; padding: 2.5mm 0; }
+.ev .date b { display: block; font: 700 18pt/1 'Playfair Display'; color: var(--gold); }
+.ev .date span { font: 600 6.5pt/1 'Inter'; letter-spacing: .2em; }
+.ev h4 { font: 600 10pt/1.3 'Inter'; }
+.ev p { font: 400 8pt/1.45 'Inter'; opacity: .65; margin-top: 1mm; }
+.ev p.near { color: var(--gold); opacity: 1; }
+.method { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7mm; margin-top: 8mm; }
+.method div { border-top: 2px solid var(--gold); padding-top: 4mm; }
+.method h5 { font: 700 11pt/1.2 'Playfair Display'; }
+.method p { font: 400 8pt/1.55 'Inter'; opacity: .72; margin-top: 2mm; }
+h2.back { font: 900 38pt/1.02 'Playfair Display'; margin-top: 62mm; max-width: 150mm; }
+h2.back em { font-style: italic; font-weight: 400; color: var(--gold); }
+p.back { font: 300 11.5pt/1.6 'Inter'; color: rgba(243,237,226,.78); max-width: 130mm; margin-top: 8mm; }
+.button { display: inline-block; margin-top: 10mm; background: var(--gold); color: var(--onyx); text-decoration: none;
+          font: 700 8.5pt/1 'Inter'; letter-spacing: .2em; text-transform: uppercase; padding: 5mm 8mm; border-radius: 1mm; }
+.fine { position: absolute; left: 18mm; right: 18mm; bottom: 22mm; font: 400 7pt/1.6 'Inter'; color: rgba(243,237,226,.5); }
+.fine b { color: rgba(243,237,226,.75); font-weight: 600; }
+</style>
+</head>
+<body>
+{%- set npairs = (highlights|length + 1) // 2 -%}
+{%- macro folio(n) -%}
+<div class="folio"><span><b>●</b>&nbsp; Radar de Leilões · Edição {{ edicao }}</span><span>{{ '%02d'|format(n) }}</span></div>
+{%- endmacro -%}
+{%- macro pct(v) -%}{{ '%.0f'|format(v or 0) }}{%- endmacro -%}
+{%- macro rings() -%}
+<svg class="cover-rings" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+  <defs><radialGradient id="g" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#d4af6a" stop-opacity=".28"/><stop offset="100%" stop-color="#d4af6a" stop-opacity="0"/></radialGradient>
+  <linearGradient id="sw" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#d4af6a" stop-opacity="0"/><stop offset="100%" stop-color="#d4af6a" stop-opacity=".45"/></linearGradient></defs>
+  <circle cx="200" cy="200" r="198" fill="url(#g)"/>
+  {% for r in [50, 100, 150, 198] %}<circle cx="200" cy="200" r="{{ r }}" fill="none" stroke="#f3ede2" stroke-opacity="{{ 0.22 if r == 198 else 0.12 }}" stroke-width="{{ 1 if r == 198 else 0.7 }}"/>{% endfor %}
+  <line x1="200" y1="2" x2="200" y2="398" stroke="#f3ede2" stroke-opacity=".1"/><line x1="2" y1="200" x2="398" y2="200" stroke="#f3ede2" stroke-opacity=".1"/>
+  <path d="M200 200 L200 2 A198 198 0 0 1 340 60 Z" fill="url(#sw)"/>
+  <circle cx="200" cy="200" r="4" fill="#d4af6a"/>
+  {% for x, y, r in [(262, 118, 4), (151, 260, 3), (300, 220, 5), (118, 150, 3.5), (236, 300, 3), (330, 140, 2.5)] %}<circle cx="{{ x }}" cy="{{ y }}" r="{{ r }}" fill="#d4af6a" fill-opacity=".85"/>{% endfor %}
+</svg>
+{%- endmacro -%}
+
+<!-- ============ 1. CAPA ============ -->
+<section class="page dark cover">
+  {{ rings() }}
+  <div class="pad" style="position:relative;">
+    <div class="cover-top"><div class="brand"><i></i>Radar de Leilões</div><div class="eyebrow" style="color:rgba(243,237,226,.6)">Edição {{ edicao }}</div></div>
+    <h1>Onde o desconto <em>encontra</em> a decisão.</h1>
+    <p class="lead">Lemos os editais por você. Nesta edição, <b>{{ '{:,}'.format(k.total).replace(',', '.') }} imóveis em leilão</b> na sua área, com desconto real, ocupação e risco jurídico avaliados, selecionados entre <b>{{ '{:,}'.format(k.monitored).replace(',', '.') }} lotes monitorados</b> em fontes oficiais.</p>
+    <div class="area-tag"><span>Espírito Santo inteiro</span><span>·</span><span>MG e BA até {{ raio }} km de {{ base }}</span></div>
+  </div>
+  <div class="kpi-band">
+    <div class="kpi"><div class="v">{{ k.total }}</div><div class="l">imóveis na<br>sua área</div></div>
+    <div class="kpi"><div class="v">{{ k.d40 }}</div><div class="l">com 40% ou mais<br>de desconto</div></div>
+    <div class="kpi"><div class="v">{{ pct(k.maxd) }}<small>%</small></div><div class="l">maior desconto<br>da edição</div></div>
+    <div class="kpi"><div class="v">{{ k.cidades }}</div><div class="l">cidades com<br>oportunidades</div></div>
+  </div>
+  {{ folio(1) }}
+</section>
+
+<!-- ============ 2. ÁREA / RADAR ============ -->
+<section class="page dark">
+  <div class="pad">
+    <div class="eyebrow">01 · Sua área de atuação</div>
+    <h2 class="section-title">O radar centrado em <em>{{ base }}</em></h2>
+    <p class="section-lead">Cobrimos o Espírito Santo inteiro e, em Minas Gerais e na Bahia, todos os municípios a até {{ raio }} km em linha reta de {{ base }}. Cada ponto é uma cidade com imóveis em leilão; quanto maior o ponto, mais lotes.</p>
+    <div class="radar-wrap">
+      <div>{{ radar|safe }}
+        <div class="legend">{% for uf in ['ES', 'MG', 'BA'] %}<span style="--c: {{ uf_colors[uf] }}">{{ uf_names[uf] }}</span>{% endfor %}</div>
+      </div>
+      <div class="uf-stack">
+        {% for uf in ['ES', 'MG', 'BA'] %}
+        <div class="uf"><div class="n" style="color: {{ uf_colors[uf] }}">{{ k.by_uf.get(uf, 0) }}</div><div class="t">{{ uf_names[uf] }}</div>
+          <div class="s">{{ 'estado inteiro' if uf in ufs_inteiras else 'até ' ~ raio ~ ' km de ' ~ base }}</div></div>
+        {% endfor %}
+        <div class="uf"><div class="n" style="color: var(--ivory)">{{ pct(k.avgd) }}%</div><div class="t">desconto médio</div><div class="s">imóveis avaliados em R$ 50 mil ou mais</div></div>
+      </div>
+    </div>
+    <table class="cities">
+      <tr><th>Cidade</th><th class="r">Distância</th><th class="r">Imóveis</th><th class="r">Desconto médio</th><th class="r">Maior desconto</th><th class="r">A partir de</th></tr>
+      {% for c in cities[:9] %}
+      <tr><td><span class="dot" style="background: {{ uf_colors[c.uf] }}"></span>{{ c.city.title() }}/{{ c.uf }}</td><td class="r">{{ '%.0f'|format(c.dist) if c.dist is not none else '—' }} km</td><td class="r">{{ c.n }}</td><td class="r">{{ pct(c.avg_disc) }}%</td><td class="r">{{ pct(c.max_disc) }}%</td><td class="r">{{ brl(c.min_price) }}</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+  {{ folio(2) }}
+</section>
+
+<!-- ============ 3. DESTAQUES ============ -->
+{% for pair in highlights|batch(2) %}
+<section class="page light">
+  <div class="pad">
+    <div class="hl-head"><div><div class="eyebrow" style="color: var(--gold-deep)">02 · Seleção do Radar</div><h2 style="margin-top:3mm">Destaques <em>da edição</em></h2></div>
+      <div class="eyebrow" style="color: var(--muted)">{{ loop.index }} / {{ loop.length }}</div></div>
+    {% for h in pair %}
+    <article class="card">
+      <div class="photo{{ '' if h.img_uri else ' nophoto' }}"{% if h.img_uri %} style="background-image:url('{{ h.img_uri }}')"{% endif %}>
+        {% if not h.img_uri %}<div class="nophoto-tag">Foto não divulgada pela fonte</div>{% endif %}
+        <div class="idx">Nº {{ '%02d'|format(highlights.index(h) + 1) }} · {{ uf_names[h.uf] }}</div>
+        <div class="disc"><b>-{{ pct(h.discount_pct) }}%</b><span>desconto</span></div>
+        <div class="over"><h3>{{ h.title }}</h3><p>{% if h.neighborhood %}{{ h.neighborhood }} · {% endif %}{{ h.city }}/{{ h.uf }}{% if h.distance_km is not none %} · {{ '%.0f'|format(h.distance_km) }} km de {{ base }}{% endif %}</p></div>
+      </div>
+      <div class="body">
+        <div class="price">
+          <div class="label">Lance mínimo</div>
+          <div class="now">{{ brl(h.min_bid) }}</div>
+          <div class="was">Avaliação <s>{{ brl(h.appraisal_value) }}</s></div>
+          <div class="save">{{ brl(h.appraisal_value - h.min_bid) }} abaixo da avaliação</div>
+          <div class="pills">
+            <span class="pill p-{{ h.risk_level or 'none' }}">{{ {'baixo': 'Risco baixo', 'medio': 'Risco médio', 'alto': 'Risco alto'}.get(h.risk_level, 'Risco a confirmar') }}</span>
+            {% if h.occupied == 0 %}<span class="pill p-des">Desocupado</span>{% elif h.occupied == 1 %}<span class="pill p-ocu">Ocupado</span>{% endif %}
+            {% if h.judicial == 0 %}<span class="pill p-none">Extrajudicial</span>{% elif h.judicial == 1 %}<span class="pill p-none">Judicial</span>{% endif %}
+          </div>
+        </div>
+        <div>
+          <div class="facts">
+            <div><span>Modalidade</span>{{ h.sale_type or '—' }}</div>
+            <div><span>Data</span>{{ fmt_date(h.auction_date) or 'Venda contínua' }}</div>
+            <div><span>Área</span>{{ h.area_txt or '—' }}{% if h.bedrooms %} · {{ h.bedrooms }} quartos{% endif %}</div>
+            <div><span>Vendedor</span>{{ h.comitente or src[h.source_id] }}</div>
+            <div><span>Fonte</span>{{ src[h.source_id] }}</div>
+            <div><span>Distância</span>{{ '%.0f'|format(h.distance_km) ~ ' km' if h.distance_km is not none else '—' }}</div>
+          </div>
+          {% set reasons = h.risk_reasons|reject('equalto', 'Venda extrajudicial')|list %}
+          {% if reasons %}<div class="why">{{ reasons[:2]|join(' · ') }}</div>{% endif %}
+          <a class="cta-link" href="{{ h.url }}">Ver edital oficial →</a>
+        </div>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {{ folio(2 + loop.index) }}
+</section>
+{% endfor %}
+
+<!-- ============ 4. RANKING ============ -->
+<section class="page light">
+  <div class="pad">
+    <div class="eyebrow" style="color: var(--gold-deep)">03 · Ranking</div>
+    <h2 class="section-title">Os maiores descontos <em style="color: var(--gold-deep)">abertos</em></h2>
+    <p class="section-lead">Imóveis avaliados em R$ 50 mil ou mais na sua área, além dos destaques. Lotes gêmeos (mesmo imóvel e preço) aparecem uma vez só.</p>
+    <table class="rank">
+      <tr><th></th><th>Imóvel</th><th class="r">Distância</th><th class="r">Avaliação</th><th class="r">Lance mínimo</th><th class="r">Desconto</th></tr>
+      {% for r in ranking %}
+      <tr>
+        <td class="pos">{{ '%02d'|format(loop.index) }}</td>
+        <td><a href="{{ r.url }}" style="color: inherit; text-decoration: none;"><div class="ttl">{{ r.title }}</div></a><div class="sub">{{ (r.neighborhood ~ ' · ') if r.neighborhood }}{{ r.city }}/{{ r.uf }} · {{ src[r.source_id] }} · {{ r.sale_type }}</div></td>
+        <td class="r">{{ '%.0f'|format(r.distance_km) ~ ' km' if r.distance_km is not none else '—' }}</td>
+        <td class="r" style="color: var(--muted)">{{ brl(r.appraisal_value) }}</td>
+        <td class="r" style="font-weight:600">{{ brl(r.min_bid) }}</td>
+        <td class="r"><span class="d">{{ pct(r.discount_pct) }}%</span><div class="bar"><i style="width: {{ pct(r.discount_pct) }}%"></i></div></td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+  {{ folio(3 + npairs) }}
+</section>
+
+<!-- ============ 5. VEÍCULOS + MÉTODO ============ -->
+<section class="page dark">
+  <div class="pad">
+    {% if agenda %}
+    <div class="eyebrow">04 · Veículos</div>
+    <h2 class="section-title">Agenda de leilões <em>na sua região</em></h2>
+    <p class="section-lead">Editais oficiais do Detran-BA com pátios a até {{ raio }} km de {{ base }}: {{ '{:,}'.format(k.veiculos).replace(',', '.') }} veículos conservados e sucatas aproveitáveis.</p>
+    <div class="agenda">
+      {% for a in agenda %}
+      <div class="ev">
+        <div class="date"><b>{{ a.auction_date[8:10] if a.auction_date else '—' }}</b><span>{{ mes_curto[a.auction_date[5:7]|int] if a.auction_date else '' }}</span></div>
+        <div><h4>{{ a.title }}</h4><p>Pátios: {{ a.neighborhood }}</p>{% if a.near %}<p class="near">Mais perto de você: {{ a.near|join(', ') }}</p>{% endif %}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <div class="eyebrow" style="margin-top: {{ '12mm' if agenda else '0' }}">05 · Método</div>
+    <h2 class="section-title" style="font-size: 24pt">Como o Radar <em>lê cada lote</em></h2>
+    <div class="method">
+      <div><h5>Fontes oficiais</h5><p>Arquivo oficial da Caixa, Detran e leiloeiros oficiais identificados (Portal Zuk e Mega Leilões). Cada lote leva ao edital original.</p></div>
+      <div><h5>Risco jurídico</h5><p>Lemos ocupação, penhoras, indisponibilidades e ações citadas na matrícula. Cláusulas genéricas de contrato não contam como risco.</p></div>
+      <div><h5>Histórico diário</h5><p>Cada lote é acompanhado todos os dias: quedas de preço, reaberturas e saída da lista, que forma o histórico de preço realizado.</p></div>
+    </div>
+  </div>
+  {{ folio(4 + npairs) }}
+</section>
+
+<!-- ============ 6. CONTRACAPA ============ -->
+<section class="page dark">
+  {{ rings() }}
+  <div class="pad" style="position:relative;">
+    <div class="brand"><i></i>Radar de Leilões</div>
+    <h2 class="back">Receba só o que <em>combina</em> com você.</h2>
+    <p class="lead back" style="margin-top:8mm">Diga a cidade, a faixa de preço e o desconto mínimo que procura. O Radar avisa por e-mail e WhatsApp assim que um lote assim aparecer, e prepara o relatório jurídico completo do lote em que você vai dar lance.</p>
+    {% if contact %}<a class="button" href="mailto:{{ contact }}?subject=Quero%20meu%20perfil%20no%20Radar%20de%20Leil%C3%B5es">Configurar meu perfil</a>{% endif %}
+  </div>
+  <div class="fine">
+    <p><b>Fontes desta edição:</b> {% for s, n in k.by_src.items() %}{{ src[s] }} ({{ '{:,}'.format(n).replace(',', '.') }}){% if not loop.last %} · {% endif %}{% endfor %}. Dados captados em {{ hoje }}. Distâncias em linha reta até {{ base }}; por estrada costumam ser de 20% a 35% maiores.</p>
+    <p style="margin-top:2.5mm">{{ disclaimer }} Preços e datas podem mudar: confira sempre o edital oficial e a matrícula atualizada.</p>
+  </div>
+  {{ folio(5 + npairs) }}
+</section>
+</body>
+</html>

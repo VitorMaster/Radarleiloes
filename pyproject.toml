@@ -22,4 +22,4 @@ radar = "radar.cli:main"
 include = ["radar*"]
 
 [tool.setuptools.package-data]
-radar = ["templates/*.html", "schema.sql"]
+radar = ["templates/*.html", "schema.sql", "data/*.csv", "assets/*.js", "assets/fonts/*"]

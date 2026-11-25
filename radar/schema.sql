@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS lots (
     description      TEXT,                     -- texto bruto do edital/anúncio
     photo_url        TEXT,                     -- foto principal (link da fonte)
     lot_count        INTEGER,                  -- >0 quando o registro é um edital com vários lotes
+    distance_km      REAL,                     -- linha reta até a cidade-base (geo.py)
+    in_area          INTEGER,                  -- 1 se atende ao parâmetro geográfico do cliente
     status           TEXT NOT NULL DEFAULT 'aberto', -- aberto | encerrado | removido
     content_hash     TEXT,                     -- detecta mudança no anúncio
     first_seen_at    TEXT NOT NULL,

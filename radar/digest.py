@@ -54,8 +54,9 @@ def build_digest(conn: sqlite3.Connection, profile: sqlite3.Row, hours: int = 24
     return {"lots": lots, "html": html, "whatsapp": "\n".join(lines)}
 
 
-def send_email(to: str, subject: str, html: str, images: list | None = None) -> bool:
-    """Envia por SMTP. `images[i]` vira o anexo inline referenciado por cid:att{i}."""
+def send_email(to: str, subject: str, html: str, images: list | None = None,
+               attachments: list | None = None) -> bool:
+    """Envia por SMTP. `images[i]` vira o anexo inline cid:att{i}; `attachments` são PDFs."""
     host = os.environ.get("SMTP_HOST")
     if not host:
         return False
@@ -67,6 +68,9 @@ def send_email(to: str, subject: str, html: str, images: list | None = None) -> 
         html_part = msg.get_payload()[-1]
         for i, path in enumerate(images):
             html_part.add_related(Path(path).read_bytes(), maintype="image", subtype="jpeg", cid=f"<att{i}>")
+    for path in attachments or []:
+        msg.add_attachment(Path(path).read_bytes(), maintype="application", subtype="pdf",
+                           filename=Path(path).name)
     with smtplib.SMTP(host, int(os.environ.get("SMTP_PORT", 587))) as s:
         s.starttls()
         if os.environ.get("SMTP_USER"):

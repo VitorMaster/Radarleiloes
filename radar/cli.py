@@ -69,17 +69,23 @@ def cmd_report(args) -> int:
     from .report import build_report
     out = Path(args.out)
     with closing(connect(args.db)) as conn:
-        rep = build_report(conn, out / "img")
-    out.mkdir(parents=True, exist_ok=True)
-    (out / "relatorio.html").write_text(rep["html"], encoding="utf-8")
-    preview = rep["html"]
-    for i, img in enumerate(rep["images"]):  # versão para abrir no navegador
-        preview = preview.replace(f"cid:att{i}", f"img/{img.name}")
-    (out / "relatorio_preview.html").write_text(preview, encoding="utf-8")
-    print(f"Assunto: {rep['subject']}\nDestaques: {len(rep['highlights'])}  imagens: {len(rep['images'])}\n"
-          f"Arquivos em {out}/")
+        rep = build_report(conn, out, pdf=not args.no_pdf)
+    print(f"Assunto: {rep['subject']}\nDestaques: {len(rep['highlights'])}  fotos no e-mail: {len(rep['images'])}\n"
+          f"PDF: {rep['pdf'] or 'não gerado'}\nArquivos em {out}/")
     if args.to:
-        print("Enviado." if send_email(args.to, rep["subject"], rep["html"], rep["images"]) else "SMTP não configurado.")
+        ok = send_email(args.to, rep["subject"], rep["html"], rep["images"], [rep["pdf"]] if rep["pdf"] else None)
+        print("Enviado." if ok else "SMTP não configurado.")
+    return 0
+
+
+def cmd_regiao(args) -> int:
+    from . import geo
+    from .pipeline import backfill_geo
+    with closing(connect(args.db)) as conn:
+        n = backfill_geo(conn)
+        inside = conn.execute("SELECT COUNT(*) FROM lots WHERE status='aberto' AND in_area=1").fetchone()[0]
+    print(f"Base: {geo.CIDADE_BASE}/{geo.UF_BASE} · raio {geo.RAIO_KM:.0f} km · UF inteiras: {', '.join(geo.UFS_INTEIRAS)}")
+    print(f"{n} lotes recalculados; {inside} abertos dentro da área.")
     return 0
 
 
@@ -146,9 +152,12 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("health", help="monitor das fontes").set_defaults(func=cmd_health)
 
+    sub.add_parser("regiao", help="recalcula distância/área (após mudar cidade-base ou raio)").set_defaults(func=cmd_regiao)
+
     rp = sub.add_parser("report", help="relatório para clientes (HTML de e-mail)")
     rp.add_argument("--out", default="data/relatorio")
     rp.add_argument("--to", help="enviar por SMTP para este e-mail")
+    rp.add_argument("--no-pdf", action="store_true", help="não gerar o PDF")
     rp.set_defaults(func=cmd_report)
 
     r = sub.add_parser("review", help="registra revisão jurídica humana")

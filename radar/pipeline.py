@@ -9,10 +9,12 @@ Para cada execução (fonte + escopo):
 """
 from __future__ import annotations
 
+import re
 import sqlite3
 from dataclasses import asdict
 from typing import Iterable
 
+from . import geo
 from .db import now_iso
 from .models import Lot
 from .risk import assess_risk
@@ -40,9 +42,33 @@ def _observe(conn, lot_id: int, lot_min_bid, appraisal, status: str, event: str,
     )
 
 
+def _geo(lot: Lot) -> tuple[float | None, int]:
+    """Distância até a cidade-base. Editais com vários municípios usam o mais próximo."""
+    cities = [lot.city]
+    if lot.lot_count and lot.neighborhood:
+        cities = [c.strip() for c in re.split(r",| e ", lot.neighborhood) if c.strip()]
+    dists = [d for d in (geo.distance_km(c, lot.uf) for c in cities) if d is not None]
+    dist = min(dists) if dists else None
+    return dist, int(geo.in_area(lot.uf, dist))
+
+
+def backfill_geo(conn: sqlite3.Connection) -> int:
+    """Recalcula distância/área de todos os lotes (ao mudar a cidade-base ou o raio)."""
+    n = 0
+    for r in conn.execute("SELECT id, city, uf, neighborhood, lot_count FROM lots").fetchall():
+        lot = Lot(source_id="", external_id="", category="imovel", url="", city=r["city"], uf=r["uf"],
+                  neighborhood=r["neighborhood"], lot_count=r["lot_count"])
+        dist, area = _geo(lot)
+        conn.execute("UPDATE lots SET distance_km=?, in_area=? WHERE id=?", (dist, area, r["id"]))
+        n += 1
+    conn.commit()
+    return n
+
+
 def upsert_lot(conn: sqlite3.Connection, lot: Lot, ts: str) -> tuple[int, str | None]:
     """Grava o lote. Retorna (lot_id, evento) onde evento ∈ {novo, preco_alterado, reaberto, alterado, None}."""
     h = lot.content_hash()
+    dist, area = _geo(lot)
     row = conn.execute(
         "SELECT id, min_bid, appraisal_value, status, content_hash FROM lots WHERE source_id=? AND external_id=?",
         (lot.source_id, lot.external_id),
@@ -53,6 +79,7 @@ def upsert_lot(conn: sqlite3.Connection, lot: Lot, ts: str) -> tuple[int, str | 
         appraisal_value=lot.appraisal_value, min_bid=lot.min_bid, discount_pct=lot.discount_pct,
         city=lot.city, uf=lot.uf, neighborhood=lot.neighborhood, address=lot.address,
         description=lot.description, photo_url=lot.photo_url, lot_count=lot.lot_count, content_hash=h,
+        distance_km=dist, in_area=area,
     )
     event: str | None
     if row is None:

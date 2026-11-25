@@ -177,6 +177,30 @@ def test_report_renders(conn, tmp_path, monkeypatch):
     from radar import report
     monkeypatch.setattr(report, "_download", lambda url, folder: None)
     run_capture(conn, CaixaSource(), "ES", caixa_lots())
-    rep = report.build_report(conn, tmp_path / "img")
-    assert "Oportunidades da semana" in rep["html"] and "Espírito Santo" in rep["html"]
+    rep = report.build_report(conn, tmp_path, pdf=False)
+    assert "Onde o desconto" in rep["html"] and "São Mateus" in rep["html"]
     assert rep["subject"].startswith("Radar de Leilões")
+    assert rep["kpis"]["total"] == 3  # todo o ES entra, independentemente da distância
+    svg = report.radar_svg(conn)
+    assert svg.startswith("<svg") and "SÃO MATEUS" in svg
+
+
+def test_geo_parameter():
+    from radar import geo
+    assert geo.distance_km("São Mateus", "ES") == 0
+    assert 120 < geo.distance_km("Teixeira de Freitas", "BA") < 140
+    assert geo.distance_km("S Jose Do Calcado", "ES") is not None  # abreviação da Caixa
+    assert geo.in_area("ES", 900)                                   # ES inteiro
+    assert geo.in_area("MG", geo.distance_km("Teófilo Otoni", "MG"))  # ~199 km
+    assert not geo.in_area("MG", geo.distance_km("Belo Horizonte", "MG"))  # ~447 km
+    assert not geo.in_area("BA", geo.distance_km("Salvador", "BA"))
+    assert not geo.in_area("BA", None)
+
+
+def test_detran_edital_uses_nearest_town(conn):
+    from radar.pipeline import _geo
+    from radar.models import Lot
+    lot = Lot(source_id="detran_ba", external_id="1", category="veiculo", url="u", uf="BA", city="Itabuna",
+              neighborhood="Itabuna, Serrinha, Senhor do Bonfim e Teixeira de Freitas", lot_count=106)
+    dist, area = _geo(lot)
+    assert 120 < dist < 140 and area == 1
