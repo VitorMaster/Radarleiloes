@@ -35,7 +35,8 @@ def init_schema(conn: sqlite3.Connection) -> None:
 
 MIGRATIONS = {  # colunas acrescentadas depois da 1ª versão do esquema
     "lots": {"comitente": "TEXT", "photo_url": "TEXT", "lot_count": "INTEGER",
-             "distance_km": "REAL", "in_area": "INTEGER"},
+             "distance_km": "REAL", "in_area": "INTEGER", "final_price": "REAL"},
+    "lot_veiculo": {"vehicle_type": "TEXT", "color": "TEXT", "fuel": "TEXT"},
 }
 
 

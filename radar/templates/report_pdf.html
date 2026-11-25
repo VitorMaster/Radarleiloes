@@ -130,12 +130,26 @@ p.back { font: 300 11.5pt/1.6 'Inter'; color: rgba(243,237,226,.78); max-width: 
           font: 700 8.5pt/1 'Inter'; letter-spacing: .2em; text-transform: uppercase; padding: 5mm 8mm; border-radius: 1mm; }
 .fine { position: absolute; left: 18mm; right: 18mm; bottom: 22mm; font: 400 7pt/1.6 'Inter'; color: rgba(243,237,226,.5); }
 .fine b { color: rgba(243,237,226,.75); font-weight: 600; }
+.vt { width: 100%; border-collapse: collapse; margin-top: 4mm; font: 400 8.2pt/1.3 'Inter'; }
+.vt th { font: 600 6.4pt/1 'Inter'; letter-spacing: .16em; text-transform: uppercase; text-align: left; color: var(--muted); padding-bottom: 2.4mm; border-bottom: 1.5px solid var(--ink); }
+.vt td { padding: 1.7mm 0; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.vt .r { text-align: right; white-space: nowrap; padding-left: 3mm; }
+.vt .ttl { font-weight: 600; }
+.vt .sub { font-size: 7.2pt; color: var(--muted); margin-top: .6mm; }
+.tag { display: inline-block; font: 600 6.3pt/1 'Inter'; letter-spacing: .08em; text-transform: uppercase; padding: 1.2mm 2mm; border-radius: 10px; background: #eceae4; color: #5f636b; }
+.tag.ok { background: #e5f3ea; color: var(--green); }
+.sub-h { font: 700 8pt/1 'Inter'; letter-spacing: .24em; text-transform: uppercase; margin-top: 8mm; color: var(--ink); }
+.dark .vt th { color: rgba(243,237,226,.55); border-bottom-color: rgba(243,237,226,.5); }
+.dark .vt td { border-bottom-color: rgba(243,237,226,.1); }
+.dark .vt .sub { color: rgba(243,237,226,.55); }
+.up { font: 700 11pt/1 'Playfair Display'; color: var(--gold); }
 </style>
 </head>
 <body>
 {%- set npairs = (highlights|length + 1) // 2 -%}
+{%- set nov = 1 if (mode == 'semanal' and ch) else 0 -%}
 {%- macro folio(n) -%}
-<div class="folio"><span><b>●</b>&nbsp; Radar de Leilões · Edição {{ edicao }}</span><span>{{ '%02d'|format(n) }}</span></div>
+<div class="folio"><span><b>●</b>&nbsp; Radar de Leilões · {{ mode_label }} · {{ edicao }}</span><span>{{ '%02d'|format(n) }}</span></div>
 {%- endmacro -%}
 {%- macro pct(v) -%}{{ '%.0f'|format(v or 0) }}{%- endmacro -%}
 {%- macro rings() -%}
@@ -150,21 +164,40 @@ p.back { font: 300 11.5pt/1.6 'Inter'; color: rgba(243,237,226,.78); max-width: 
   {% for x, y, r in [(262, 118, 4), (151, 260, 3), (300, 220, 5), (118, 150, 3.5), (236, 300, 3), (330, 140, 2.5)] %}<circle cx="{{ x }}" cy="{{ y }}" r="{{ r }}" fill="#d4af6a" fill-opacity=".85"/>{% endfor %}
 </svg>
 {%- endmacro -%}
+{%- macro vtable(items, dark=False) -%}
+<table class="vt">
+  <tr><th>Veículo</th><th>Pátio / local</th><th>Estado</th><th class="r">Leilão</th><th class="r">Lance mínimo</th></tr>
+  {% for v in items %}
+  <tr>
+    <td><a href="{{ v.url }}" style="color: inherit; text-decoration: none;"><div class="ttl">{{ v.title }}</div></a><div class="sub">{{ src.get(v.source_id, v.source_id) }}{% if v.comitente and v.comitente != src.get(v.source_id) %} · {{ v.comitente }}{% endif %}</div></td>
+    <td>{{ v.city }}/{{ v.uf }}</td>
+    <td><span class="tag{{ ' ok' if v.classification == 'conservado' else '' }}">{{ (v.classification or 'n/i')|capitalize }}</span></td>
+    <td class="r">{{ fmt_date(v.auction_date) or '—' }}</td>
+    <td class="r" style="font-weight:600">{{ brl(v.min_bid) }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{%- endmacro -%}
 
 <!-- ============ 1. CAPA ============ -->
 <section class="page dark cover">
   {{ rings() }}
   <div class="pad" style="position:relative;">
-    <div class="cover-top"><div class="brand"><i></i>Radar de Leilões</div><div class="eyebrow" style="color:rgba(243,237,226,.6)">Edição {{ edicao }}</div></div>
+    <div class="cover-top"><div class="brand"><i></i>Radar de Leilões</div><div class="eyebrow" style="color:rgba(243,237,226,.6)">{{ mode_label }} · {{ edicao }}</div></div>
+    {% if mode == 'semanal' %}
+    <h1>A semana <em>em leilões</em>.</h1>
+    <p class="lead">O compilado de segunda a sábado: <b>{{ ch.new_props|length if ch else 0 }} imóveis novos</b>, {{ ch.drops|length if ch else 0 }} quedas de preço e {{ ch.closed|length if ch else 0 }} lotes encerrados, mais as melhores oportunidades abertas entre <b>{{ '{:,}'.format(k.monitored).replace(',', '.') }} lotes monitorados</b>.</p>
+    {% else %}
     <h1>Onde o desconto <em>encontra</em> a decisão.</h1>
-    <p class="lead">Lemos os editais por você. Nesta edição, <b>{{ '{:,}'.format(k.total).replace(',', '.') }} imóveis em leilão</b> na sua área, com desconto real, ocupação e risco jurídico avaliados, selecionados entre <b>{{ '{:,}'.format(k.monitored).replace(',', '.') }} lotes monitorados</b> em fontes oficiais.</p>
-    <div class="area-tag"><span>Espírito Santo inteiro</span><span>·</span><span>MG e BA até {{ raio }} km de {{ base }}</span></div>
+    <p class="lead">Varredura completa da semana: <b>{{ k.total }} imóveis, {{ k.motos }} motocicletas e {{ k.automoveis }} automóveis</b> em leilão na sua região, com desconto, ocupação e risco jurídico avaliados, entre <b>{{ '{:,}'.format(k.monitored).replace(',', '.') }} lotes monitorados</b> em fontes oficiais.</p>
+    {% endif %}
+    <div class="area-tag"><span>Espírito Santo inteiro</span><span>·</span><span>MG e BA no entorno de {{ base }}</span></div>
   </div>
   <div class="kpi-band">
     <div class="kpi"><div class="v">{{ k.total }}</div><div class="l">imóveis na<br>sua área</div></div>
     <div class="kpi"><div class="v">{{ k.d40 }}</div><div class="l">com 40% ou mais<br>de desconto</div></div>
-    <div class="kpi"><div class="v">{{ pct(k.maxd) }}<small>%</small></div><div class="l">maior desconto<br>da edição</div></div>
-    <div class="kpi"><div class="v">{{ k.cidades }}</div><div class="l">cidades com<br>oportunidades</div></div>
+    <div class="kpi"><div class="v">{{ k.motos }}</div><div class="l">motocicletas<br>em leilão</div></div>
+    <div class="kpi"><div class="v">{{ k.automoveis }}</div><div class="l">automóveis<br>em leilão</div></div>
   </div>
   {{ folio(1) }}
 </section>
@@ -174,7 +207,7 @@ p.back { font: 300 11.5pt/1.6 'Inter'; color: rgba(243,237,226,.78); max-width: 
   <div class="pad">
     <div class="eyebrow">01 · Sua área de atuação</div>
     <h2 class="section-title">O radar centrado em <em>{{ base }}</em></h2>
-    <p class="section-lead">Cobrimos o Espírito Santo inteiro e, em Minas Gerais e na Bahia, todos os municípios a até {{ raio }} km em linha reta de {{ base }}. Cada ponto é uma cidade com imóveis em leilão; quanto maior o ponto, mais lotes.</p>
+    <p class="section-lead">Cobrimos o Espírito Santo inteiro e, em Minas Gerais e na Bahia, os municípios no entorno de {{ base }}. Cada ponto é uma cidade com imóveis em leilão; quanto maior o ponto, mais lotes.</p>
     <div class="radar-wrap">
       <div>{{ radar|safe }}
         <div class="legend">{% for uf in ['ES', 'MG', 'BA'] %}<span style="--c: {{ uf_colors[uf] }}">{{ uf_names[uf] }}</span>{% endfor %}</div>
@@ -182,22 +215,52 @@ p.back { font: 300 11.5pt/1.6 'Inter'; color: rgba(243,237,226,.78); max-width: 
       <div class="uf-stack">
         {% for uf in ['ES', 'MG', 'BA'] %}
         <div class="uf"><div class="n" style="color: {{ uf_colors[uf] }}">{{ k.by_uf.get(uf, 0) }}</div><div class="t">{{ uf_names[uf] }}</div>
-          <div class="s">{{ 'estado inteiro' if uf in ufs_inteiras else 'até ' ~ raio ~ ' km de ' ~ base }}</div></div>
+          <div class="s">{{ 'estado inteiro' if uf in ufs_inteiras else 'entorno de ' ~ base }}</div></div>
         {% endfor %}
         <div class="uf"><div class="n" style="color: var(--ivory)">{{ pct(k.avgd) }}%</div><div class="t">desconto médio</div><div class="s">imóveis avaliados em R$ 50 mil ou mais</div></div>
       </div>
     </div>
     <table class="cities">
-      <tr><th>Cidade</th><th class="r">Distância</th><th class="r">Imóveis</th><th class="r">Desconto médio</th><th class="r">Maior desconto</th><th class="r">A partir de</th></tr>
+      <tr><th>Cidade</th><th class="r">Imóveis</th><th class="r">Desconto médio</th><th class="r">Maior desconto</th><th class="r">A partir de</th></tr>
       {% for c in cities[:9] %}
-      <tr><td><span class="dot" style="background: {{ uf_colors[c.uf] }}"></span>{{ c.city.title() }}/{{ c.uf }}</td><td class="r">{{ '%.0f'|format(c.dist) if c.dist is not none else '—' }} km</td><td class="r">{{ c.n }}</td><td class="r">{{ pct(c.avg_disc) }}%</td><td class="r">{{ pct(c.max_disc) }}%</td><td class="r">{{ brl(c.min_price) }}</td></tr>
+      <tr><td><span class="dot" style="background: {{ uf_colors[c.uf] }}"></span>{{ c.city.title() }}/{{ c.uf }}</td><td class="r">{{ c.n }}</td><td class="r">{{ pct(c.avg_disc) }}%</td><td class="r">{{ pct(c.max_disc) }}%</td><td class="r">{{ brl(c.min_price) }}</td></tr>
       {% endfor %}
     </table>
   </div>
   {{ folio(2) }}
 </section>
 
-<!-- ============ 3. DESTAQUES ============ -->
+{% if nov %}
+<!-- ============ NOVIDADES DA SEMANA ============ -->
+<section class="page light">
+  <div class="pad">
+    <div class="eyebrow" style="color: var(--gold-deep)">Semana · Novidades</div>
+    <h2 class="section-title">O que <em style="color: var(--gold-deep)">mudou</em> nesta semana</h2>
+    <div class="sub-h">Imóveis que entraram em leilão</div>
+    <table class="vt">
+      <tr><th>Imóvel</th><th class="r">Avaliação</th><th class="r">Lance mínimo</th><th class="r">Desconto</th></tr>
+      {% for r in ch.new_props[:12] %}
+      <tr><td><a href="{{ r.url }}" style="color: inherit; text-decoration: none;"><div class="ttl">{{ r.title }}</div></a><div class="sub">{{ r.city }}/{{ r.uf }} · {{ src.get(r.source_id, r.source_id) }} · {{ r.sale_type }}</div></td>
+        <td class="r" style="color: var(--muted)">{{ brl(r.appraisal_value) }}</td><td class="r" style="font-weight:600">{{ brl(r.min_bid) }}</td>
+        <td class="r"><b style="color: var(--gold-deep)">{{ (pct(r.discount_pct) ~ '%') if r.discount_pct and r.discount_pct > 0 else '—' }}</b></td></tr>
+      {% else %}<tr><td colspan="4" style="color: var(--muted)">Nenhum imóvel novo na região nesta semana.</td></tr>{% endfor %}
+    </table>
+    {% if ch.drops %}
+    <div class="sub-h">Preços que caíram</div>
+    <table class="vt">
+      <tr><th>Imóvel</th><th class="r">Antes</th><th class="r">Agora</th><th class="r">Queda</th></tr>
+      {% for r in ch.drops[:6] %}
+      <tr><td><div class="ttl">{{ r.title }}</div><div class="sub">{{ r.city }}/{{ r.uf }} · {{ src.get(r.source_id, r.source_id) }}</div></td>
+        <td class="r" style="color: var(--muted)"><s>{{ brl(r.old_bid) }}</s></td><td class="r" style="font-weight:600">{{ brl(r.min_bid) }}</td><td class="r"><b style="color: var(--gold-deep)">-{{ pct(r.drop_pct) }}%</b></td></tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+  </div>
+  {{ folio(3) }}
+</section>
+{% endif %}
+
+<!-- ============ DESTAQUES ============ -->
 {% for pair in highlights|batch(2) %}
 <section class="page light">
   <div class="pad">
@@ -208,15 +271,15 @@ p.back { font: 300 11.5pt/1.6 'Inter'; color: rgba(243,237,226,.78); max-width: 
       <div class="photo{{ '' if h.img_uri else ' nophoto' }}"{% if h.img_uri %} style="background-image:url('{{ h.img_uri }}')"{% endif %}>
         {% if not h.img_uri %}<div class="nophoto-tag">Foto não divulgada pela fonte</div>{% endif %}
         <div class="idx">Nº {{ '%02d'|format(highlights.index(h) + 1) }} · {{ uf_names[h.uf] }}</div>
-        <div class="disc"><b>-{{ pct(h.discount_pct) }}%</b><span>desconto</span></div>
-        <div class="over"><h3>{{ h.title }}</h3><p>{% if h.neighborhood %}{{ h.neighborhood }} · {% endif %}{{ h.city }}/{{ h.uf }}{% if h.distance_km is not none %} · {{ '%.0f'|format(h.distance_km) }} km de {{ base }}{% endif %}</p></div>
+        {% if h.discount_pct %}<div class="disc"><b>-{{ pct(h.discount_pct) }}%</b><span>desconto</span></div>{% endif %}
+        <div class="over"><h3>{{ h.title }}</h3><p>{% if h.neighborhood %}{{ h.neighborhood }} · {% endif %}{{ h.city }}/{{ h.uf }}</p></div>
       </div>
       <div class="body">
         <div class="price">
           <div class="label">Lance mínimo</div>
           <div class="now">{{ brl(h.min_bid) }}</div>
-          <div class="was">Avaliação <s>{{ brl(h.appraisal_value) }}</s></div>
-          <div class="save">{{ brl(h.appraisal_value - h.min_bid) }} abaixo da avaliação</div>
+          {% if h.appraisal_value %}<div class="was">Avaliação <s>{{ brl(h.appraisal_value) }}</s></div>
+          {% if h.appraisal_value > h.min_bid %}<div class="save">{{ brl(h.appraisal_value - h.min_bid) }} abaixo da avaliação</div>{% endif %}{% endif %}
           <div class="pills">
             <span class="pill p-{{ h.risk_level or 'none' }}">{{ {'baixo': 'Risco baixo', 'medio': 'Risco médio', 'alto': 'Risco alto'}.get(h.risk_level, 'Risco a confirmar') }}</span>
             {% if h.occupied == 0 %}<span class="pill p-des">Desocupado</span>{% elif h.occupied == 1 %}<span class="pill p-ocu">Ocupado</span>{% endif %}
@@ -228,9 +291,9 @@ p.back { font: 300 11.5pt/1.6 'Inter'; color: rgba(243,237,226,.78); max-width: 
             <div><span>Modalidade</span>{{ h.sale_type or '—' }}</div>
             <div><span>Data</span>{{ fmt_date(h.auction_date) or 'Venda contínua' }}</div>
             <div><span>Área</span>{{ h.area_txt or '—' }}{% if h.bedrooms %} · {{ h.bedrooms }} quartos{% endif %}</div>
-            <div><span>Vendedor</span>{{ h.comitente or src[h.source_id] }}</div>
-            <div><span>Fonte</span>{{ src[h.source_id] }}</div>
-            <div><span>Distância</span>{{ '%.0f'|format(h.distance_km) ~ ' km' if h.distance_km is not none else '—' }}</div>
+            <div><span>Vendedor</span>{{ h.comitente or src.get(h.source_id, h.source_id) }}</div>
+            <div><span>Fonte</span>{{ src.get(h.source_id, h.source_id) }}</div>
+            <div><span>Ocupação</span>{{ {0: 'Desocupado', 1: 'Ocupado'}.get(h.occupied, 'Não informada') }}</div>
           </div>
           {% set reasons = h.risk_reasons|reject('equalto', 'Venda extrajudicial')|list %}
           {% if reasons %}<div class="why">{{ reasons[:2]|join(' · ') }}</div>{% endif %}
@@ -240,23 +303,22 @@ p.back { font: 300 11.5pt/1.6 'Inter'; color: rgba(243,237,226,.78); max-width: 
     </article>
     {% endfor %}
   </div>
-  {{ folio(2 + loop.index) }}
+  {{ folio(2 + nov + loop.index) }}
 </section>
 {% endfor %}
 
-<!-- ============ 4. RANKING ============ -->
+<!-- ============ RANKING ============ -->
 <section class="page light">
   <div class="pad">
     <div class="eyebrow" style="color: var(--gold-deep)">03 · Ranking</div>
     <h2 class="section-title">Os maiores descontos <em style="color: var(--gold-deep)">abertos</em></h2>
     <p class="section-lead">Imóveis avaliados em R$ 50 mil ou mais na sua área, além dos destaques. Lotes gêmeos (mesmo imóvel e preço) aparecem uma vez só.</p>
     <table class="rank">
-      <tr><th></th><th>Imóvel</th><th class="r">Distância</th><th class="r">Avaliação</th><th class="r">Lance mínimo</th><th class="r">Desconto</th></tr>
+      <tr><th></th><th>Imóvel</th><th class="r">Avaliação</th><th class="r">Lance mínimo</th><th class="r">Desconto</th></tr>
       {% for r in ranking %}
       <tr>
         <td class="pos">{{ '%02d'|format(loop.index) }}</td>
-        <td><a href="{{ r.url }}" style="color: inherit; text-decoration: none;"><div class="ttl">{{ r.title }}</div></a><div class="sub">{{ (r.neighborhood ~ ' · ') if r.neighborhood }}{{ r.city }}/{{ r.uf }} · {{ src[r.source_id] }} · {{ r.sale_type }}</div></td>
-        <td class="r">{{ '%.0f'|format(r.distance_km) ~ ' km' if r.distance_km is not none else '—' }}</td>
+        <td><a href="{{ r.url }}" style="color: inherit; text-decoration: none;"><div class="ttl">{{ r.title }}</div></a><div class="sub">{{ (r.neighborhood ~ ' · ') if r.neighborhood }}{{ r.city }}/{{ r.uf }} · {{ src.get(r.source_id, r.source_id) }} · {{ r.sale_type }}</div></td>
         <td class="r" style="color: var(--muted)">{{ brl(r.appraisal_value) }}</td>
         <td class="r" style="font-weight:600">{{ brl(r.min_bid) }}</td>
         <td class="r"><span class="d">{{ pct(r.discount_pct) }}%</span><div class="bar"><i style="width: {{ pct(r.discount_pct) }}%"></i></div></td>
@@ -264,50 +326,73 @@ p.back { font: 300 11.5pt/1.6 'Inter'; color: rgba(243,237,226,.78); max-width: 
       {% endfor %}
     </table>
   </div>
-  {{ folio(3 + npairs) }}
+  {{ folio(3 + nov + npairs) }}
 </section>
 
-<!-- ============ 5. VEÍCULOS + MÉTODO ============ -->
+<!-- ============ AUTOMÓVEIS E MOTOS ============ -->
+<section class="page light">
+  <div class="pad">
+    <div class="eyebrow" style="color: var(--gold-deep)">04 · Veículos</div>
+    <h2 class="section-title">Automóveis <em style="color: var(--gold-deep)">e motocicletas</em></h2>
+    <p class="section-lead">{{ k.automoveis }} automóveis e {{ k.motos }} motocicletas em leilão na sua região. Conservados primeiro, dos mais novos para os mais antigos. Veículos são vendidos no estado em que se encontram: visite o pátio antes do lance.</p>
+    <div class="sub-h">Automóveis</div>
+    {% if autos %}{{ vtable(autos[:8]) }}{% else %}<p class="why">Nenhum automóvel aberto na região nesta edição.</p>{% endif %}
+    <div class="sub-h">Motocicletas</div>
+    {% if motos %}{{ vtable(motos[:8]) }}{% else %}<p class="why">Nenhuma motocicleta aberta na região nesta edição.</p>{% endif %}
+  </div>
+  {{ folio(4 + nov + npairs) }}
+</section>
+
+<!-- ============ AGENDA + PREÇO REALIZADO ============ -->
 <section class="page dark">
   <div class="pad">
     {% if agenda %}
-    <div class="eyebrow">04 · Veículos</div>
-    <h2 class="section-title">Agenda de leilões <em>na sua região</em></h2>
-    <p class="section-lead">Editais oficiais do Detran-BA com pátios a até {{ raio }} km de {{ base }}: {{ '{:,}'.format(k.veiculos).replace(',', '.') }} veículos conservados e sucatas aproveitáveis.</p>
+    <div class="eyebrow">05 · Agenda</div>
+    <h2 class="section-title">Leilões de veículos <em>na sua região</em></h2>
     <div class="agenda">
       {% for a in agenda %}
       <div class="ev">
         <div class="date"><b>{{ a.auction_date[8:10] if a.auction_date else '—' }}</b><span>{{ mes_curto[a.auction_date[5:7]|int] if a.auction_date else '' }}</span></div>
-        <div><h4>{{ a.title }}</h4><p>Pátios: {{ a.neighborhood }}</p>{% if a.near %}<p class="near">Mais perto de você: {{ a.near|join(', ') }}</p>{% endif %}</div>
+        <div><h4>{{ a.title }}</h4><p>Pátios: {{ a.neighborhood }}</p>{% if a.near %}<p class="near">Pátios na sua região: {{ a.near|join(', ') }}</p>{% endif %}</div>
       </div>
       {% endfor %}
     </div>
     {% endif %}
-    <div class="eyebrow" style="margin-top: {{ '12mm' if agenda else '0' }}">05 · Método</div>
-    <h2 class="section-title" style="font-size: 24pt">Como o Radar <em>lê cada lote</em></h2>
-    <div class="method">
-      <div><h5>Fontes oficiais</h5><p>Arquivo oficial da Caixa, Detran e leiloeiros oficiais identificados (Portal Zuk e Mega Leilões). Cada lote leva ao edital original.</p></div>
-      <div><h5>Risco jurídico</h5><p>Lemos ocupação, penhoras, indisponibilidades e ações citadas na matrícula. Cláusulas genéricas de contrato não contam como risco.</p></div>
-      <div><h5>Histórico diário</h5><p>Cada lote é acompanhado todos os dias: quedas de preço, reaberturas e saída da lista, que forma o histórico de preço realizado.</p></div>
-    </div>
+    {% if realized %}
+    <div class="eyebrow" style="margin-top: {{ '11mm' if agenda else '0' }}">06 · Preço realizado</div>
+    <h2 class="section-title" style="font-size: 24pt">Quanto os lotes <em>realmente saíram</em></h2>
+    <p class="section-lead">Leilões encerrados na região, com lance inicial e lance vencedor divulgados pelo leiloeiro. É a referência mais honesta de quanto disputar.</p>
+    <table class="vt">
+      <tr><th>Lote</th><th>Vendedor</th><th class="r">Lance inicial</th><th class="r">Vencedor</th><th class="r">Ágio</th></tr>
+      {% for r in realized[:7] %}
+      <tr><td><div class="ttl">{{ r.title }}</div><div class="sub">{{ r.city }}/{{ r.uf }} · {{ fmt_date(r.auction_date) }}</div></td><td>{{ r.comitente or '' }}</td>
+        <td class="r">{{ brl(r.min_bid) }}</td><td class="r" style="font-weight:600">{{ brl(r.final_price) }}</td><td class="r"><span class="up">+{{ pct(r.uplift) }}%</span></td></tr>
+      {% endfor %}
+    </table>
+    {% endif %}
   </div>
-  {{ folio(4 + npairs) }}
+  {{ folio(5 + nov + npairs) }}
 </section>
 
-<!-- ============ 6. CONTRACAPA ============ -->
+<!-- ============ CONTRACAPA ============ -->
 <section class="page dark">
   {{ rings() }}
   <div class="pad" style="position:relative;">
     <div class="brand"><i></i>Radar de Leilões</div>
-    <h2 class="back">Receba só o que <em>combina</em> com você.</h2>
-    <p class="lead back" style="margin-top:8mm">Diga a cidade, a faixa de preço e o desconto mínimo que procura. O Radar avisa por e-mail e WhatsApp assim que um lote assim aparecer, e prepara o relatório jurídico completo do lote em que você vai dar lance.</p>
+    <div class="method" style="margin-top: 26mm; max-width: 150mm;">
+      <div><h5>Fontes oficiais</h5><p>Caixa, Detran-BA e leiloeiros oficiais identificados (Portal Zuk, Mega Leilões, ES Leilões). Cada lote leva ao edital original.</p></div>
+      <div><h5>Risco jurídico</h5><p>Ocupação, penhoras, indisponibilidades e ações citadas na matrícula. Cláusulas genéricas não contam como risco.</p></div>
+      <div><h5>Histórico diário</h5><p>Cada lote é acompanhado todos os dias: novidades, quedas de preço, encerramentos e preço realizado.</p></div>
+    </div>
+    <h2 class="back" style="margin-top: 26mm">Receba só o que <em>combina</em> com você.</h2>
+    <p class="lead back" style="margin-top:8mm">Diga a cidade, a faixa de preço e o desconto mínimo que procura. O Radar avisa assim que um lote assim aparecer e prepara o relatório jurídico completo do lote em que você vai dar lance.</p>
     {% if contact %}<a class="button" href="mailto:{{ contact }}?subject=Quero%20meu%20perfil%20no%20Radar%20de%20Leil%C3%B5es">Configurar meu perfil</a>{% endif %}
   </div>
   <div class="fine">
-    <p><b>Fontes desta edição:</b> {% for s, n in k.by_src.items() %}{{ src[s] }} ({{ '{:,}'.format(n).replace(',', '.') }}){% if not loop.last %} · {% endif %}{% endfor %}. Dados captados em {{ hoje }}. Distâncias em linha reta até {{ base }}; por estrada costumam ser de 20% a 35% maiores.</p>
+    <p><b>Fontes desta edição:</b> {% for s, n in k.by_src.items() %}{{ src.get(s, s) }} ({{ '{:,}'.format(n).replace(',', '.') }}){% if not loop.last %} · {% endif %}{% endfor %} lotes monitorados. Dados captados em {{ hoje }}.</p>
     <p style="margin-top:2.5mm">{{ disclaimer }} Preços e datas podem mudar: confira sempre o edital oficial e a matrícula atualizada.</p>
   </div>
-  {{ folio(5 + npairs) }}
+  {{ folio(6 + nov + npairs) }}
 </section>
 </body>
 </html>

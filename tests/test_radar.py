@@ -204,3 +204,88 @@ def test_detran_edital_uses_nearest_town(conn):
               neighborhood="Itabuna, Serrinha, Senhor do Bonfim e Teixeira de Freitas", lot_count=106)
     dist, area = _geo(lot)
     assert 120 < dist < 140 and area == 1
+
+
+# --- veículos e rotina --------------------------------------------------------
+
+def test_vehicle_classification():
+    from radar.vehicles import classify, pretty_city
+    assert classify("HONDA/CB 300R") == "moto"
+    assert classify("I/SHINERAY 50") == "moto"
+    assert classify("HUARI MARVA 50CC") == "moto"
+    assert classify("YAMAHA/XTZ250 LANDER") == "moto"
+    assert classify("FIAT/UNO ATTRACTIVE 1.0") == "automovel"
+    assert classify("HYUNDAI/HB20 1.0") == "automovel"
+    assert classify("M.BENZ/ATEGO 2425") == "caminhao"
+    assert classify("Qualquer coisa", "motos") == "moto"
+    assert pretty_city("TEIXEIRA DE FREITAS DP") == "Teixeira de Freitas DP"
+
+
+ANNEX = """ANEXO I
+TEIXEIRA DE FREITAS
+LOTE PLACA CHASSI MARCA_MODELO RENAVAN UF COR FAB/MOD COMBUSTIVEL MOTOR
+1 OUY8137 9C2JC4110ER106615 HONDA/CG 125 FAN
+KS 675270669 BA VERMELHA 2013/2014 GASOLINA JC41E1E106615 SIM CONSERVADO R$ 550,00
+2 SUPRIMIDO 9BD***********865 FIAT/UNO ELECTRONIC SUPRIMIDO BA VERDE 1995/1995 GASOLINA 4297251 SIM SUCATA
+APROVEITAVEL R$ 550,00
+TEIXEIRA DE FREITAS DP
+LOTE PLACA CHASSI MARCA_MODELO RENAVAN UF COR FAB/MOD COMBUSTIVEL MOTOR
+1 1 EMPLAC 9C2JC30705R000062 HONDA/CG 125 FAN N/I N/I VERMELHA 2005/2005 N/I N/I SIM CONSERVADO R$ 600,00
+"""
+
+
+def test_detran_annex_parser():
+    from radar.sources.detran_ba import parse_annex
+    rows = parse_annex(ANNEX)
+    assert [r["lote"] for r in rows] == [1, 2, 1]
+    a, b, c = rows
+    assert a["model"] == "HONDA/CG 125 FAN KS" and a["year"] == 2014 and a["value"] == 550
+    assert a["city"] == "Teixeira de Freitas" and a["classification"] == "conservado"
+    assert b["classification"] == "sucata" and b["model"] == "FIAT/UNO ELECTRONIC"
+    assert c["patio"] == "TEIXEIRA DE FREITAS DP" and c["city"] == "Teixeira de Freitas"
+    assert all("OUY8137" not in str(r) and "675270669" not in str(r) for r in rows)  # sem placa/Renavam
+
+
+def test_esleiloes_parser_lgpd(conn):
+    from radar.sources.esleiloes import EsLeiloesSource
+    lots = list(EsLeiloesSource().parse_event(_fx("esleiloes_evento.html"), "29", "https://x"))
+    assert len(lots) == 2  # "bens diversos" fica fora
+    sold, moto = lots
+    assert sold.status == "encerrado" and sold.final_price == 36500 and sold.min_bid == 13000
+    assert sold.city == "Vitória" and sold.veiculo.vehicle_type == "automovel"
+    assert "FULANO" not in repr(sold)  # nome do arrematante nunca é guardado
+    assert moto.status == "aberto" and moto.veiculo.vehicle_type == "moto" and moto.veiculo.year == 2021
+    assert moto.title == "Honda CG 160 Fan 2021"
+    assert "Exemplo" in sold.comitente
+    run_capture(conn, EsLeiloesSource(), "ES", lots)
+    row = conn.execute("SELECT status, final_price FROM lots WHERE external_id='911'").fetchone()
+    assert row["status"] == "encerrado" and row["final_price"] == 36500
+    ev = conn.execute("SELECT o.event, o.min_bid FROM lot_observations o JOIN lots l ON l.id=o.lot_id "
+                      "WHERE l.external_id='911'").fetchone()
+    assert ev["event"] == "arrematado" and ev["min_bid"] == 36500
+
+
+def test_rotina_modes():
+    from datetime import datetime
+    from radar.rotina import TZ, mode_for
+    assert mode_for(datetime(2026, 11, 23, 11, 0, tzinfo=TZ)) == "completo"      # segunda
+    assert mode_for(datetime(2026, 11, 25, 11, 0, tzinfo=TZ)) == "atualizacao"   # quarta
+    assert mode_for(datetime(2026, 11, 28, 11, 0, tzinfo=TZ)) == "semanal"       # sábado
+    assert mode_for(datetime(2026, 11, 29, 11, 0, tzinfo=TZ)) is None            # domingo
+
+
+def test_update_report_only_news(conn, tmp_path, monkeypatch):
+    from radar import report
+    monkeypatch.setattr(report, "_download", lambda url, folder: None)
+    src = CaixaSource()
+    run_capture(conn, src, "ES", caixa_lots())          # linha de base: nada é novidade
+    since = conn.execute("SELECT MAX(started_at) FROM capture_runs").fetchone()[0]
+    rep = report.build_report(conn, tmp_path / "a", mode="atualizacao", since=since)
+    assert rep["changes"]["total"] == 0 and "sem novidades" in rep["subject"]
+    import time; time.sleep(1.1)
+    lots = caixa_lots()
+    lots[0].min_bid = 150000                               # queda de preço
+    run_capture(conn, src, "ES", lots)
+    rep = report.build_report(conn, tmp_path / "b", mode="atualizacao", since=since)
+    assert len(rep["changes"]["drops"]) == 1 and rep["pdf"] is None
+    assert round(rep["changes"]["drops"][0]["drop_pct"]) == 17

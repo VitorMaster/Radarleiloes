@@ -34,6 +34,9 @@ class VeiculoInfo:
     runs: bool | None = None
     has_key: bool | None = None
     classification: str | None = None
+    vehicle_type: str | None = None
+    color: str | None = None
+    fuel: str | None = None
 
 
 @dataclass
@@ -59,6 +62,8 @@ class Lot:
     veiculo: VeiculoInfo | None = None
     photo_url: str | None = None
     lot_count: int | None = None
+    final_price: float | None = None
+    status: str = "aberto"  # a fonte pode informar 'encerrado' (ex.: lote já vendido)
 
     @property
     def discount_pct(self) -> float | None:

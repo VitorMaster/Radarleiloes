@@ -7,6 +7,7 @@ from __future__ import annotations
 from .base import Source
 from .caixa import CaixaSource
 from .detran_ba import DetranBASource
+from .esleiloes import EsLeiloesSource
 from .mega import MegaSource
 from .zuk import ZukSource
 
@@ -15,6 +16,7 @@ REGISTRY: dict[str, type[Source]] = {
     ZukSource.id: ZukSource,
     MegaSource.id: MegaSource,
     DetranBASource.id: DetranBASource,
+    EsLeiloesSource.id: EsLeiloesSource,
 }
 
 

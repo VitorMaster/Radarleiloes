@@ -17,7 +17,9 @@ das fases 2 e 3 (nota de conservação por IA, risco jurídico e resumo diário)
 | **Caixa**: CSV oficial por UF, com cerca de 1.970 imóveis em ES/MG/BA | `radar/sources/caixa.py` | ✅ captando ao vivo |
 | **Portal Zuk**: bancos (Itaú, Santander, Bradesco), securitizadoras e TJs, com ocupação e matrícula lidas no detalhe | `radar/sources/zuk.py` | ✅ ao vivo (1ª página por UF; o robots.txt proíbe o "carregar mais") |
 | **Mega Leilões**: imóveis e veículos, judiciais e extrajudiciais, com avaliação e sinais da matrícula | `radar/sources/mega.py` | ✅ ao vivo |
-| **Detran-BA**: agenda de editais de veículos (municípios, nº de lotes, data, PDF) | `radar/sources/detran_ba.py` | ✅ ao vivo |
+| **Detran-BA**: editais e **cada veículo do Anexo I** (modelo, ano, cor, conservado/sucata, lance), sem placa/chassi/Renavam | `radar/sources/detran_ba.py` | ✅ ao vivo |
+| **ES Leilões**: viaturas da Polícia Civil, bens de prefeituras do ES e lotes já arrematados com **lance vencedor** (preço realizado), sem o nome do arrematante | `radar/sources/esleiloes.py` | ✅ ao vivo |
+| **Automóveis e motocicletas**: classificação moto / automóvel / caminhão | `radar/vehicles.py` | ✅ |
 | **Relatório para clientes**: e-mail elegante com destaques, ranking por UF e agenda | `radar report`, `radar/templates/report.html` | ✅ |
 | Captura diária: novos, alterados, **encerrados** (sumiram da fonte) | `radar/pipeline.py` | ✅ |
 | Monitor de fontes: falha, zero lotes, **queda brusca de volume** | `radar health`, página `/fontes` | ✅ |
@@ -50,10 +52,29 @@ Cron sugerido (todo dia às 6h): `0 6 * * * cd /caminho && .venv/bin/radar daily
 Variáveis de ambiente: `RADAR_DB` (padrão `data/radar.db`), `RADAR_MODEL`, `RADAR_CONTACT_EMAIL` (botão do relatório),
 `ANTHROPIC_API_KEY`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` e `SMTP_FROM`.
 
+## Rotina diária e envio automático
+
+| Dia | Modo | O que faz | E-mail |
+|---|---|---|---|
+| Segunda | `completo` | Varredura completa de todas as fontes (detalhes, anexos dos editais) | Panorama + **PDF** |
+| Terça a sexta | `atualizacao` | Captura e compara com o envio anterior | Só novidades: imóveis e veículos novos, quedas de preço, encerrados |
+| Sábado | `semanal` | Compila a semana desde segunda 00h | Resumo semanal + **PDF** |
+| Domingo | — | Não roda | — |
+
+```bash
+radar rotina                     # escolhe o modo pelo dia (horário de Brasília)
+radar rotina --modo semanal      # força um modo
+scripts/rotina_agendada.sh       # versão da tarefa agendada: restaura e salva o histórico no branch radar-dados
+```
+
+A rotina grava `data/relatorio/manifest.json` com assunto, HTML, texto, fotos e PDF. O envio é feito pela
+tarefa agendada no Claude (Gmail conectado) ou por SMTP (`radar rotina --to email@...` com `SMTP_*` configurado).
+O histórico (≈400 KB compactado) fica no branch `radar-dados`, num único commit sobrescrito a cada dia.
+
 ## Parâmetro geográfico do cliente
 
 O relatório cobre **todo o Espírito Santo** e, em **MG e BA, só os municípios a até 300 km de São Mateus**
-(linha reta; por estrada a distância costuma ser 20–35% maior). Cada lote guarda `distance_km` e `in_area`.
+(linha reta). Cada lote guarda `distance_km` e `in_area`; a distância é usada só no filtro e não aparece no relatório.
 A captura continua completa: o filtro vale para o relatório e os destaques, então dá para mudar a região sem recapturar.
 
 ```bash

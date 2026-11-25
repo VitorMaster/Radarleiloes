@@ -26,12 +26,14 @@ from . import geo
 from .digest import DISCLAIMER, brl, env
 from .queries import BASE as LOT_QUERY, _decorate
 from .sources.base import USER_AGENT
+from .vehicles import LABEL as VEHICLE_LABEL
 
 MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto",
          "setembro", "outubro", "novembro", "dezembro"]
 MES_CURTO = ["", "JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"]
 UF_NAMES = {"ES": "Espírito Santo", "MG": "Minas Gerais", "BA": "Bahia"}
-SOURCE_LABEL = {"caixa": "Caixa", "zuk": "Portal Zuk", "mega": "Mega Leilões", "detran_ba": "Detran-BA"}
+SOURCE_LABEL = {"caixa": "Caixa", "zuk": "Portal Zuk", "mega": "Mega Leilões", "detran_ba": "Detran-BA",
+                "esleiloes": "ES Leilões"}
 QUOTAS = {"ES": 4, "MG": 2, "BA": 2}  # destaques do PDF; o e-mail mostra 4 deles
 UF_COLORS = {"ES": "#d4af6a", "MG": "#7fb3d5", "BA": "#e07a5f"}
 
@@ -142,17 +144,77 @@ def kpis(conn: sqlite3.Connection) -> dict:
                   SUM(CASE WHEN appraisal_value IS NOT NULL AND min_bid IS NOT NULL
                            THEN appraisal_value - min_bid ELSE 0 END) economia,
                   COUNT(DISTINCT lower(city) || uf) cidades
-           FROM lots l WHERE {AREA} AND lot_count IS NULL"""
+           FROM lots l WHERE {AREA} AND lot_count IS NULL AND category='imovel'"""
     ).fetchone()
     monitored = conn.execute("SELECT COUNT(*) FROM lots WHERE status='aberto'").fetchone()[0]
     by_uf = {r["uf"]: r["n"] for r in conn.execute(
-        f"SELECT uf, COUNT(*) n FROM lots l WHERE {AREA} AND lot_count IS NULL GROUP BY uf")}
+        f"SELECT uf, COUNT(*) n FROM lots l WHERE {AREA} AND lot_count IS NULL AND category='imovel' GROUP BY uf")}
     by_src = {r["source_id"]: r["n"] for r in conn.execute(
         "SELECT source_id, COUNT(*) n FROM lots WHERE status='aberto' GROUP BY source_id")}
     veic = conn.execute(
         f"SELECT COALESCE(SUM(lot_count),0) FROM lots l WHERE {AREA} AND lot_count IS NOT NULL").fetchone()[0]
+    vt = {r["vehicle_type"]: r["n"] for r in conn.execute(
+        f"""SELECT v.vehicle_type, COUNT(*) n FROM lots l JOIN lot_veiculo v ON v.lot_id = l.id
+            WHERE {AREA} AND l.lot_count IS NULL AND l.category='veiculo' GROUP BY v.vehicle_type""")}
     return {**dict(area), "monitored": monitored, "by_uf": by_uf, "by_src": by_src,
-            "veiculos": veic, "fontes": len(by_src)}
+            "veiculos": veic, "fontes": len(by_src), "motos": vt.get("moto", 0),
+            "automoveis": vt.get("automovel", 0)}
+
+
+# --- veículos, preço realizado e novidades -------------------------------------
+
+def vehicles(conn: sqlite3.Connection, vtype: str, n: int = 10, since: str | None = None) -> list[dict]:
+    """Automóveis ou motos abertos na área: conservados primeiro, mais novos e mais baratos."""
+    where, args = "l.category='veiculo' AND l.lot_count IS NULL AND v.vehicle_type = ?", [vtype]
+    if since:
+        where += " AND l.first_seen_at >= ? AND " + NOT_BASELINE
+        args.append(since)
+    return _lots(conn, where, args,
+                 "CASE WHEN v.classification='conservado' THEN 0 ELSE 1 END, v.year DESC NULLS LAST, l.min_bid ASC", n)
+
+
+def realized(conn: sqlite3.Connection, n: int = 8, since: str | None = None) -> list[dict]:
+    """Lotes arrematados com lance vencedor divulgado: o 'preço realizado'."""
+    where, args = "l.final_price IS NOT NULL", []
+    if since:
+        where += " AND l.closed_at >= ?"
+        args.append(since)
+    sql = f"""{LOT_QUERY} WHERE l.in_area=1 AND l.status<>'aberto' AND {where}
+              ORDER BY (l.final_price / NULLIF(l.min_bid, 0)) DESC LIMIT ?"""
+    rows = [_decorate(dict(r)) for r in conn.execute(sql, [*args, n])]
+    for r in rows:
+        r["uplift"] = (r["final_price"] / r["min_bid"] - 1) * 100 if r.get("min_bid") else None
+    return rows
+
+
+# Lotes da 1ª captura de cada fonte formam a linha de base: não contam como "novidade".
+NOT_BASELINE = """l.first_seen_at > (SELECT MIN(started_at) FROM capture_runs c
+                                     WHERE c.source_id = l.source_id AND c.scope = l.uf AND c.ok = 1)"""
+
+
+def changes(conn: sqlite3.Connection, since: str) -> dict:
+    new_props = _lots(conn, "l.category='imovel' AND l.lot_count IS NULL AND l.first_seen_at >= ? AND " + NOT_BASELINE,
+                      [since], "l.discount_pct DESC NULLS LAST", 40)
+    drops = []
+    for r in conn.execute(
+        f"""SELECT o.lot_id, o.min_bid new_bid, o.observed_at,
+                   (SELECT p.min_bid FROM lot_observations p WHERE p.lot_id = o.lot_id AND p.observed_at < o.observed_at
+                    ORDER BY p.observed_at DESC LIMIT 1) old_bid
+            FROM lot_observations o JOIN lots l ON l.id = o.lot_id
+            WHERE o.event = 'preco_alterado' AND o.observed_at >= ? AND l.in_area = 1 AND l.status = 'aberto'
+              AND l.lot_count IS NULL""", (since,)):
+        if r["old_bid"] and r["new_bid"] and r["new_bid"] < r["old_bid"]:
+            lot = _decorate(dict(conn.execute(f"{LOT_QUERY} WHERE l.id = ?", (r["lot_id"],)).fetchone()))
+            lot["old_bid"], lot["drop_pct"] = r["old_bid"], (1 - r["new_bid"] / r["old_bid"]) * 100
+            drops.append(lot)
+    drops.sort(key=lambda x: -x["drop_pct"])
+    closed = [_decorate(dict(r)) for r in conn.execute(
+        f"""{LOT_QUERY} WHERE l.in_area = 1 AND l.status <> 'aberto' AND l.closed_at >= ? AND l.lot_count IS NULL
+              AND l.closed_at > l.first_seen_at
+            ORDER BY l.closed_at DESC LIMIT 30""", (since,))]
+    new_veh = {t: vehicles(conn, t, 12, since) for t in ("moto", "automovel")}
+    return {"new_props": new_props, "drops": drops[:15], "closed": closed, "new_veh": new_veh,
+            "total": len(new_props) + len(drops) + len(closed) + sum(len(v) for v in new_veh.values())}
 
 
 def vehicle_agenda(conn: sqlite3.Connection) -> list[dict]:
@@ -160,7 +222,7 @@ def vehicle_agenda(conn: sqlite3.Connection) -> list[dict]:
     for a in rows:  # quais municípios do edital estão dentro do raio
         towns = [t.strip() for t in (a.get("neighborhood") or "").replace(" e ", ",").split(",") if t.strip()]
         near = [(t, geo.distance_km(t, a["uf"])) for t in towns]
-        a["near"] = [f"{t} ({d:.0f} km)" for t, d in sorted(near, key=lambda x: x[1] or 9e9)
+        a["near"] = [t for t, d in sorted(near, key=lambda x: x[1] or 9e9)
                      if d is not None and d <= geo.RAIO_KM]
     return rows
 
@@ -198,7 +260,7 @@ def radar_svg(conn: sqlite3.Connection, size: int = 520, dark: bool = True) -> s
 
     rows = conn.execute(
         f"""SELECT city, uf, COUNT(*) n FROM lots l
-            WHERE {AREA} AND lot_count IS NULL GROUP BY lower(city), uf""").fetchall()
+            WHERE {AREA} AND lot_count IS NULL AND category='imovel' GROUP BY lower(city), uf""").fetchall()
     pts = []
     for r in rows:
         d, b = geo.distance_km(r["city"], r["uf"]), geo.bearing_deg(r["city"], r["uf"])
@@ -321,12 +383,29 @@ def _font_faces() -> str:
 
 # --- montagem -----------------------------------------------------------------
 
-def build_report(conn: sqlite3.Connection, out_dir: str | Path, pdf: bool = True) -> dict:
+MODES = {
+    "completo": ("Varredura completa", "Panorama completo da sua região"),
+    "atualizacao": ("Atualização do dia", "O que mudou desde o último envio"),
+    "semanal": ("Resumo da semana", "Tudo o que aconteceu nesta semana"),
+}
+
+
+def build_report(conn: sqlite3.Connection, out_dir: str | Path, pdf: bool | None = None,
+                 mode: str = "completo", since: str | None = None) -> dict:
+    """mode: 'completo' (segunda), 'atualizacao' (terça a sexta) ou 'semanal' (sábado).
+    `since` (ISO UTC) delimita as novidades nos modos atualização e semanal."""
     out = Path(out_dir)
     img_dir = out / "img"
     img_dir.mkdir(parents=True, exist_ok=True)
     today = date.today()
-    highlights = pick_highlights(conn)
+    pdf = (mode != "atualizacao") if pdf is None else pdf
+    ch = changes(conn, since) if since and mode != "completo" else None
+
+    if mode == "atualizacao":
+        highlights = [h for h in (ch["new_props"] if ch else [])
+                      if h.get("photo_url") and (h.get("discount_pct") or 0) >= 20][:4]
+    else:
+        highlights = pick_highlights(conn)
     seen_hashes: set[str] = set()
     for h in highlights:
         path = _download(h["photo_url"], img_dir) if h.get("photo_url") else None
@@ -336,24 +415,32 @@ def build_report(conn: sqlite3.Connection, out_dir: str | Path, pdf: bool = True
             h["img_path"] = path
         h["area_txt"] = fmt_area(h)
     k = kpis(conn)
+    label, tagline = MODES[mode]
     ctx = dict(
+        mode=mode, mode_label=label, mode_tagline=tagline, ch=ch,
         highlights=highlights, ranking=ranking(conn, 13, {h["id"] for h in highlights}),
         cities=city_summary(conn), agenda=vehicle_agenda(conn), k=k, uf_names=UF_NAMES,
+        motos=vehicles(conn, "moto", 10), autos=vehicles(conn, "automovel", 10),
+        realized=realized(conn, 8, since if mode == "semanal" else None),
         src=SOURCE_LABEL, hoje=data_extenso(today), fmt_date=fmt_date, fmt_area=fmt_area, brl=brl,
         disclaimer=DISCLAIMER, contact=os.environ.get("RADAR_CONTACT_EMAIL", ""),
         base=geo.CIDADE_BASE, raio=int(geo.RAIO_KM), ufs_inteiras=geo.UFS_INTEIRAS,
-        uf_colors=UF_COLORS, mes_curto=MES_CURTO, edicao=today.strftime("%d.%m.%Y"),
+        uf_colors=UF_COLORS, mes_curto=MES_CURTO, edicao=today.strftime("%d.%m.%Y"), vlabel=VEHICLE_LABEL,
     )
 
-    # E-mail: 2 destaques do ES + 2 de fora; fotos por cid na ordem dos anexos.
-    email_hl = [h for h in highlights if h["uf"] == "ES"][:2] + [h for h in highlights if h["uf"] != "ES"][:2]
+    # E-mail: até 4 destaques com foto (cid na ordem dos anexos).
+    if mode == "atualizacao":
+        email_hl = highlights[:4]
+    else:
+        email_hl = [h for h in highlights if h["uf"] == "ES"][:2] + [h for h in highlights if h["uf"] != "ES"][:2]
     images: list[Path] = []
     for h in email_hl:
         h["cid"] = None
         if h.get("img_path"):
             h["cid"] = f"att{len(images)}"
             images.append(h["img_path"])
-    pdf_name = f"Radar-de-Leiloes_{today.strftime('%Y-%m-%d')}.pdf"
+    slug = {"completo": "Panorama", "atualizacao": "Atualizacao", "semanal": "Resumo-semanal"}[mode]
+    pdf_name = f"Radar-de-Leiloes_{slug}_{today.strftime('%Y-%m-%d')}.pdf"
     html = env.get_template("report.html").render(**ctx, email_highlights=email_hl, pdf_name=pdf_name if pdf else None)
     preview = html
     for i, img in enumerate(images):
@@ -371,10 +458,20 @@ def build_report(conn: sqlite3.Connection, out_dir: str | Path, pdf: bool = True
         src.write_text(pdf_html, encoding="utf-8")
         pdf_path = render_pdf(src, out / pdf_name)
 
-    subject = (f"Radar de Leilões · {k['d40']} imóveis com 40%+ de desconto no ES e até "
-               f"{int(geo.RAIO_KM)} km de {geo.CIDADE_BASE} — {today.strftime('%d/%m')}")
+    d = today.strftime("%d/%m")
+    if mode == "atualizacao":
+        n = ch["total"] if ch else 0
+        nv = sum(len(v) for v in ch["new_veh"].values()) if ch else 0
+        subject = (f"Radar de Leilões · Atualização {d}: {len(ch['new_props'])} imóveis novos, {nv} veículos novos, "
+                   f"{len(ch['drops'])} quedas de preço" if n else f"Radar de Leilões · Atualização {d}: sem novidades")
+    elif mode == "semanal":
+        subject = (f"Radar de Leilões · Resumo da semana ({d}): "
+                   f"{len(ch['new_props']) if ch else 0} imóveis novos e {k['d40']} com 40%+ de desconto")
+    else:
+        subject = (f"Radar de Leilões · Varredura completa {d}: {k['d40']} imóveis com 40%+ de desconto, "
+                   f"{k['motos']} motos e {k['automoveis']} carros na sua região")
     return {"html": html, "images": images, "subject": subject, "highlights": highlights,
-            "kpis": k, "pdf": pdf_path}
+            "kpis": k, "pdf": pdf_path, "changes": ch, "mode": mode}
 
 
 def render_pdf(html_path: Path, pdf_path: Path) -> Path | None:

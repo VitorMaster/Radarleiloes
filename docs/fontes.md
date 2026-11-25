@@ -19,11 +19,14 @@ Antes de pôr qualquer captador em produção, confira cada item abaixo e regist
 | 1 | **Caixa** | CSV oficial por UF | ✅ ao vivo |
 | 1 | **Portal Zuk** (Itaú, Santander, Bradesco, Sicoob, TJs) | listagem pública por UF + página de detalhe | ✅ ao vivo |
 | 1 | **Mega Leilões** (judiciais e extrajudiciais) | listagem pública por UF (paginada) + detalhe | ✅ ao vivo |
-| 2 | **Detran-BA** | página oficial de editais | ✅ ao vivo (por edital) |
+| 2 | **Detran-BA** | página oficial de editais + Anexo I em PDF (um registro por veículo) | ✅ ao vivo |
+| 4 | **ES Leilões** (Polícia Civil-ES, prefeituras, Findes) | eventos públicos, com lance vencedor dos lotes vendidos | ✅ ao vivo |
+| 1 | Mega Leilões — veículos | já incluído na captura por UF (carros, motos, caminhões) | ✅ |
+| 2 | Detran-MG (leilao.detran.mg.gov.br) | o site não respondeu a partir da nuvem | verificar |
 | 1 | Seu Imóvel BB (Banco do Brasil) | a listagem exige token anti-robô | ⛔ não contornamos; pedir parceria/feed |
 | 1 | Sodré Santoro, leilaoimovel.com.br | bloqueiam robôs (HTTP 403) | ⛔ pedir parceria |
 | 1 | Superbid | API própria bloqueada (403) | ⛔ pedir acesso oficial |
-| 2 | Detran-ES | editais de leilão eletrônico com leiloeiro credenciado | próximo |
+| 2 | Detran-ES | editais de 2026 já realizados; acompanhar novos editais | próximo |
 | 2 | Receita Federal (SLE) | portal exige navegador; editais em PDF no Serpro | próximo |
 | 2 | Detran-MG | site não respondeu ao teste | verificar |
 | 3 | TJES, TJMG, TJBA (leiloeiros nomeados) | diários da Justiça | próximo |

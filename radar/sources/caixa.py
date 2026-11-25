@@ -18,6 +18,7 @@ import unicodedata
 from typing import Iterable
 
 from ..models import ImovelInfo, Lot
+from ..vehicles import pretty_city
 from .base import Source
 
 CSV_URL = "https://venda-imoveis.caixa.gov.br/listaweb/Lista_imoveis_{uf}.csv"
@@ -115,7 +116,7 @@ class CaixaSource(Source):
             fin = _norm(col(row, "financiamento"))
             info.accepts_financing = True if fin == "sim" else False if fin in ("nao", "n") else None
             link = col(row, "link") or DETAIL_URL.format(id=ext_id)
-            city = col(row, "cidade").title() or None
+            city = pretty_city(col(row, "cidade")) or None
             yield Lot(
                 source_id=self.id,
                 external_id=ext_id,
@@ -130,7 +131,7 @@ class CaixaSource(Source):
                 min_bid=parse_brl(col(row, "preco")),
                 city=city,
                 uf=(col(row, "uf") or uf or "").upper() or None,
-                neighborhood=col(row, "bairro").title() or None,
+                neighborhood=pretty_city(col(row, "bairro")) or None,
                 address=col(row, "endereco") or None,
                 description=desc or None,
                 imovel=info,

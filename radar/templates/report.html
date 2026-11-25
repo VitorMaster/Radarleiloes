@@ -14,15 +14,36 @@
     .kpi-l { font-size: 9px !important; letter-spacing: .5px !important; }
     .stack { display: block !important; width: 100% !important; }
     .stack-pad { padding: 0 0 14px 0 !important; }
+    .hide-sm { display: none !important; }
   }
 </style>
 </head>
 {%- set onyx = '#0b0c0f' -%}{%- set ivory = '#f3ede2' -%}{%- set gold = '#d4af6a' -%}{%- set golddeep = '#a88443' -%}
 {%- set ink = '#14161a' -%}{%- set muted = '#7d828c' -%}{%- set paper = '#f7f4ee' -%}{%- set line = '#e6e0d4' -%}
 {%- set serif = "Georgia,'Times New Roman',serif" -%}{%- set sans = "Helvetica,Arial,sans-serif" -%}
+{%- set upd = mode == 'atualizacao' -%}
 {%- macro pill(text, bg, fg) -%}<span style="display:inline-block;background:{{ bg }};color:{{ fg }};font:700 10px/1 {{ sans }};letter-spacing:.6px;text-transform:uppercase;padding:6px 9px;border-radius:20px;margin:0 4px 4px 0;">{{ text }}</span>{%- endmacro -%}
+{%- macro section(eyebrow, title, em) -%}
+<tr><td class="px" style="padding:36px 34px 4px;">
+  <div style="font:700 10px/1 {{ sans }};color:{{ golddeep }};letter-spacing:4px;text-transform:uppercase;">{{ eyebrow }}</div>
+  <h2 style="margin:10px 0 0;font:700 26px/1.15 {{ serif }};color:{{ ink }};">{{ title }} <i style="font-weight:400;color:{{ golddeep }};">{{ em }}</i></h2>
+</td></tr>
+{%- endmacro -%}
+{%- macro row(r, left_sub, right_top, right_sub, badge) -%}
+<tr>
+  <td valign="top" style="border-top:1px solid {{ line }};padding:12px 8px 12px 0;font:13px/1.35 {{ sans }};color:{{ ink }};">
+    <a href="{{ r.url }}" style="color:{{ ink }};text-decoration:none;"><b>{{ r.title }}</b></a><br>
+    <span style="color:{{ muted }};font-size:12px;">{{ left_sub }}</span>
+  </td>
+  <td align="right" valign="top" style="border-top:1px solid {{ line }};padding:12px 8px;font:13px/1.35 {{ sans }};color:{{ ink }};white-space:nowrap;"><b>{{ right_top }}</b>{% if right_sub %}<br><span style="color:{{ muted }};font-size:11px;">{{ right_sub|safe }}</span>{% endif %}</td>
+  <td align="right" valign="top" style="border-top:1px solid {{ line }};padding:12px 0;font:700 15px/1 {{ serif }};color:{{ golddeep }};white-space:nowrap;">{{ badge }}</td>
+</tr>
+{%- endmacro -%}
+{%- macro vrows(items) -%}
+  {%- for v in items %}{{ row(v, (v.city ~ '/' ~ v.uf) ~ ' · ' ~ (v.classification|default('', true)|capitalize) ~ (' · ' ~ fmt_date(v.auction_date) if v.auction_date else '') ~ ' · ' ~ src.get(v.source_id, v.source_id), brl(v.min_bid), 'lance mínimo', '') }}{% endfor %}
+{%- endmacro -%}
 <body style="margin:0;padding:0;background:{{ onyx }};">
-<div style="display:none;max-height:0;overflow:hidden;">{{ k.total }} imóveis no ES e até {{ raio }} km de {{ base }} · {{ k.d40 }} com 40%+ de desconto · relatório completo em PDF anexo.</div>
+<div style="display:none;max-height:0;overflow:hidden;">{% if upd and ch %}{{ ch.new_props|length }} imóveis novos, {{ ch.drops|length }} quedas de preço e {{ ch.new_veh.moto|length + ch.new_veh.automovel|length }} veículos novos na sua região.{% else %}{{ k.total }} imóveis, {{ k.motos }} motos e {{ k.automoveis }} automóveis em leilão na sua região.{% endif %}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:{{ onyx }};">
 <tr><td align="center" class="outer" style="padding:24px 10px;">
 <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="width:100%;max-width:640px;">
@@ -31,21 +52,34 @@
 <tr><td class="px" style="padding:30px 34px 8px;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
     <td style="font:700 12px/1 {{ sans }};color:{{ ivory }};letter-spacing:5px;text-transform:uppercase;"><span style="color:{{ gold }};">&#9673;</span>&nbsp; Radar de Leilões</td>
-    <td align="right" style="font:600 10px/1 {{ sans }};color:{{ gold }};letter-spacing:3px;text-transform:uppercase;">Edição {{ edicao }}</td>
+    <td align="right" style="font:600 10px/1.4 {{ sans }};color:{{ gold }};letter-spacing:3px;text-transform:uppercase;">{{ mode_label }}<br><span style="color:#8f897e;">{{ edicao }}</span></td>
   </tr></table>
 </td></tr>
-<tr><td class="px" style="padding:34px 34px 6px;">
+<tr><td class="px" style="padding:30px 34px 6px;">
+  {%- if mode == 'atualizacao' %}
+  <h1 class="hero" style="margin:0;font:700 40px/1.05 {{ serif }};color:{{ ivory }};letter-spacing:-.5px;">O que mudou<br><i style="font-weight:400;color:{{ gold }};">desde o último envio</i>.</h1>
+  <p style="margin:18px 0 0;font:16px/1.6 {{ sans }};color:#bdb6aa;">Só as novidades da sua região: imóveis e veículos que entraram em leilão, preços que caíram e lotes que foram encerrados.</p>
+  {%- elif mode == 'semanal' %}
+  <h1 class="hero" style="margin:0;font:700 40px/1.05 {{ serif }};color:{{ ivory }};letter-spacing:-.5px;">A semana<br><i style="font-weight:400;color:{{ gold }};">em leilões</i>.</h1>
+  <p style="margin:18px 0 0;font:16px/1.6 {{ sans }};color:#bdb6aa;">O compilado de segunda a sábado: o que entrou, o que caiu de preço, o que foi arrematado e as melhores oportunidades abertas.</p>
+  {%- else %}
   <h1 class="hero" style="margin:0;font:700 40px/1.05 {{ serif }};color:{{ ivory }};letter-spacing:-.5px;">Onde o desconto<br><i style="font-weight:400;color:{{ gold }};">encontra</i> a decisão.</h1>
-  <p style="margin:18px 0 0;font:16px/1.6 {{ sans }};color:#bdb6aa;">Lemos os editais por você. Nesta edição, <b style="color:{{ ivory }};">{{ k.total }} imóveis em leilão</b> no Espírito Santo e até {{ raio }} km de {{ base }}, com desconto real, ocupação e risco jurídico avaliados.</p>
+  <p style="margin:18px 0 0;font:16px/1.6 {{ sans }};color:#bdb6aa;">Varredura completa da semana: <b style="color:{{ ivory }};">{{ k.total }} imóveis, {{ k.motos }} motos e {{ k.automoveis }} automóveis</b> em leilão no Espírito Santo e no entorno de {{ base }}, com desconto, ocupação e risco jurídico avaliados.</p>
+  {%- endif %}
   {%- if pdf_name %}
-  <p style="margin:16px 0 0;font:600 12px/1.5 {{ sans }};color:{{ gold }};letter-spacing:1px;">&#128206;&nbsp; Relatório completo em PDF anexo: radar da região, 8 destaques e ranking dos maiores descontos.</p>
+  <p style="margin:16px 0 0;font:600 12px/1.5 {{ sans }};color:{{ gold }};letter-spacing:1px;">&#128206;&nbsp; Relatório completo em PDF anexo.</p>
   {%- endif %}
 </td></tr>
 
 <!-- KPIs -->
+{%- if upd and ch %}
+{%- set kp = [(ch.new_props|length, 'imóveis<br>novos'), (ch.drops|length, 'quedas<br>de preço'), (ch.new_veh.moto|length + ch.new_veh.automovel|length, 'veículos<br>novos'), (ch.closed|length, 'lotes<br>encerrados')] -%}
+{%- else %}
+{%- set kp = [(k.total, 'imóveis na<br>sua área'), (k.d40, 'com 40%+<br>de desconto'), (k.motos, 'motos em<br>leilão'), (k.automoveis, 'automóveis<br>em leilão')] -%}
+{%- endif %}
 <tr><td class="px" style="padding:26px 34px 30px;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #2a2d34;"><tr>
-  {%- for val, label in [(k.total, 'imóveis na<br>sua área'), (k.d40, 'com 40%+<br>de desconto'), ('%.0f%%'|format(k.maxd or 0), 'maior<br>desconto'), (k.cidades, 'cidades com<br>oportunidades')] %}
+  {%- for val, label in kp %}
     <td width="25%" valign="top" style="padding:18px 6px 0 {{ '0' if loop.first else '12px' }};{% if not loop.first %}border-left:1px solid #2a2d34;{% endif %}">
       <div class="kpi-v" style="font:700 30px/1 {{ serif }};color:{{ ivory }};">{{ val }}</div>
       <div class="kpi-l" style="font:600 10px/1.4 {{ sans }};color:#8f897e;letter-spacing:1.2px;text-transform:uppercase;margin-top:8px;">{{ label|safe }}</div>
@@ -54,15 +88,22 @@
   </tr></table>
 </td></tr>
 
-<!-- DESTAQUES (fundo claro) -->
+<!-- PAINEL CLARO -->
 <tr><td style="background:{{ paper }};border-radius:14px 14px 0 0;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-<tr><td class="px" style="padding:34px 34px 6px;">
-  <div style="font:700 10px/1 {{ sans }};color:{{ golddeep }};letter-spacing:4px;text-transform:uppercase;">Seleção do Radar</div>
-  <h2 style="margin:10px 0 0;font:700 28px/1.15 {{ serif }};color:{{ ink }};">Destaques <i style="font-weight:400;color:{{ golddeep }};">da edição</i></h2>
-  <p style="margin:8px 0 0;font:14px/1.55 {{ sans }};color:{{ muted }};">Maiores descontos sem sinal de risco alto. Desocupados e com risco baixo têm prioridade.</p>
-</td></tr>
 
+{%- if upd and (not ch or ch.total == 0) %}
+<tr><td class="px" style="padding:40px 34px 10px;">
+  <div style="font:700 10px/1 {{ sans }};color:{{ golddeep }};letter-spacing:4px;text-transform:uppercase;">Hoje</div>
+  <h2 style="margin:10px 0 0;font:700 26px/1.2 {{ serif }};color:{{ ink }};">Nenhuma novidade <i style="font-weight:400;color:{{ golddeep }};">desde o último envio</i></h2>
+  <p style="margin:10px 0 0;font:14px/1.6 {{ sans }};color:{{ muted }};">As fontes foram verificadas e nada mudou na sua região. Os {{ k.total }} imóveis e {{ k.motos + k.automoveis }} veículos em leilão continuam disponíveis; o panorama completo chega na segunda-feira.</p>
+</td></tr>
+{%- endif %}
+
+{%- if email_highlights %}
+{{ section('Seleção do Radar' if not upd else 'Novidades', 'Destaques' if not upd else 'Imóveis', 'da edição' if not upd else 'que entraram hoje') }}
+<tr><td class="px" style="padding:4px 34px 0;"><p style="margin:6px 0 0;font:14px/1.55 {{ sans }};color:{{ muted }};">{{ 'Maiores descontos sem sinal de risco alto. Desocupados e com risco baixo têm prioridade.' if not upd else 'Os novos lotes com maior desconto.' }}</p></td></tr>
+{%- endif %}
 {%- for h in email_highlights %}
 <tr><td class="px" style="padding:22px 34px 0;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;">
@@ -72,23 +113,27 @@
     <tr><td style="padding:20px 22px 22px;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
         <td valign="top">
-          <div style="font:600 10px/1 {{ sans }};color:{{ muted }};letter-spacing:2px;text-transform:uppercase;">{{ uf_names[h.uf] }}{% if h.distance_km is not none %} · {{ '%.0f'|format(h.distance_km) }} km de {{ base }}{% endif %}</div>
+          <div style="font:600 10px/1 {{ sans }};color:{{ muted }};letter-spacing:2px;text-transform:uppercase;">{{ uf_names[h.uf] }}</div>
           <div style="font:700 21px/1.2 {{ serif }};color:{{ ink }};margin-top:8px;">{{ h.title }}</div>
           <div style="font:13px/1.45 {{ sans }};color:{{ muted }};margin-top:4px;">{% if h.neighborhood %}{{ h.neighborhood }} · {% endif %}{{ h.city }}/{{ h.uf }}{% if h.area_txt %} · {{ h.area_txt }}{% endif %}{% if h.bedrooms %} · {{ h.bedrooms }} quartos{% endif %}</div>
         </td>
+        {%- if h.discount_pct %}
         <td valign="top" align="right" width="86" style="width:86px;">
           <div style="background:{{ onyx }};color:{{ gold }};border-radius:8px;text-align:center;padding:10px 4px 8px;">
             <div style="font:700 24px/1 {{ serif }};">-{{ '%.0f'|format(h.discount_pct) }}%</div>
             <div style="font:700 8px/1 {{ sans }};letter-spacing:1.5px;color:#bdb6aa;margin-top:5px;">DESCONTO</div>
           </div>
         </td>
+        {%- endif %}
       </tr></table>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;border-top:1px solid {{ line }};"><tr>
         <td class="stack stack-pad" valign="top" style="padding:14px 10px 0 0;">
           <div style="font:600 9px/1 {{ sans }};color:{{ muted }};letter-spacing:2px;text-transform:uppercase;">Lance mínimo</div>
           <div style="font:700 24px/1.1 {{ serif }};color:{{ ink }};margin-top:6px;">{{ brl(h.min_bid) }}</div>
+          {%- if h.appraisal_value %}
           <div style="font:12px/1.4 {{ sans }};color:{{ muted }};margin-top:4px;">avaliação <s>{{ brl(h.appraisal_value) }}</s></div>
-          <div style="font:700 12px/1.4 {{ sans }};color:#2f8f5b;margin-top:2px;">{{ brl(h.appraisal_value - h.min_bid) }} abaixo da avaliação</div>
+          {%- if h.appraisal_value > h.min_bid %}<div style="font:700 12px/1.4 {{ sans }};color:#2f8f5b;margin-top:2px;">{{ brl(h.appraisal_value - h.min_bid) }} abaixo da avaliação</div>{% endif %}
+          {%- endif %}
         </td>
         <td class="stack" valign="top" style="padding:14px 0 0 0;font:13px/1.5 {{ sans }};color:{{ ink }};">
           {{ pill({'baixo': 'Risco baixo', 'medio': 'Risco médio', 'alto': 'Risco alto'}.get(h.risk_level, 'Risco a confirmar'), {'baixo': '#e5f3ea', 'medio': '#fbf0dc', 'alto': '#f8e3df'}.get(h.risk_level, '#eceae4'), {'baixo': '#2f8f5b', 'medio': '#b7791f', 'alto': '#b6412f'}.get(h.risk_level, '#5f636b')) }}
@@ -103,32 +148,58 @@
 </td></tr>
 {%- endfor %}
 
-<!-- RANKING -->
-<tr><td class="px" style="padding:38px 34px 4px;">
-  <div style="font:700 10px/1 {{ sans }};color:{{ golddeep }};letter-spacing:4px;text-transform:uppercase;">Ranking</div>
-  <h2 style="margin:10px 0 0;font:700 26px/1.15 {{ serif }};color:{{ ink }};">Maiores descontos <i style="font-weight:400;color:{{ golddeep }};">abertos</i></h2>
-</td></tr>
-<tr><td class="px" style="padding:12px 34px 0;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
-  {%- for r in ranking[:8] %}
-    <tr>
-      <td width="30" valign="top" style="border-top:1px solid {{ line }};padding:12px 0;font:italic 15px/1 {{ serif }};color:{{ golddeep }};">{{ '%02d'|format(loop.index) }}</td>
-      <td valign="top" style="border-top:1px solid {{ line }};padding:12px 8px 12px 0;font:13px/1.35 {{ sans }};color:{{ ink }};">
-        <a href="{{ r.url }}" style="color:{{ ink }};text-decoration:none;"><b>{{ r.title }}</b></a><br>
-        <span style="color:{{ muted }};font-size:12px;">{{ r.city }}/{{ r.uf }}{% if r.distance_km is not none %} · {{ '%.0f'|format(r.distance_km) }} km{% endif %} · {{ src[r.source_id] }}</span>
-      </td>
-      <td align="right" valign="top" style="border-top:1px solid {{ line }};padding:12px 8px;font:13px/1.35 {{ sans }};color:{{ ink }};white-space:nowrap;"><b>{{ brl(r.min_bid) }}</b><br><s style="color:{{ muted }};font-size:11px;">{{ brl(r.appraisal_value) }}</s></td>
-      <td align="right" valign="top" style="border-top:1px solid {{ line }};padding:12px 0;font:700 16px/1 {{ serif }};color:{{ golddeep }};white-space:nowrap;">{{ '%.0f'|format(r.discount_pct) }}%</td>
-    </tr>
-  {%- endfor %}
-  </table>
-</td></tr>
+{%- if ch and ch.new_props|length > email_highlights|length %}
+{{ section('Novidades', 'Imóveis novos', 'na sua região' if upd else 'da semana') }}
+<tr><td class="px" style="padding:12px 34px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+  {%- for r in ch.new_props if r not in email_highlights %}{% if loop.index <= 12 %}{{ row(r, r.city ~ '/' ~ r.uf ~ ' · ' ~ src[r.source_id] ~ ' · ' ~ (r.sale_type or ''), brl(r.min_bid), ('<s>' ~ brl(r.appraisal_value) ~ '</s>') if r.appraisal_value else '', ('%.0f%%'|format(r.discount_pct)) if r.discount_pct and r.discount_pct > 0 else '') }}{% endif %}{% endfor %}
+</table></td></tr>
+{%- endif %}
 
-{%- if agenda %}
-<tr><td class="px" style="padding:36px 34px 4px;">
-  <div style="font:700 10px/1 {{ sans }};color:{{ golddeep }};letter-spacing:4px;text-transform:uppercase;">Veículos</div>
-  <h2 style="margin:10px 0 0;font:700 26px/1.15 {{ serif }};color:{{ ink }};">Leilões do Detran-BA <i style="font-weight:400;color:{{ golddeep }};">na região</i></h2>
-</td></tr>
+{%- if ch and ch.drops %}
+{{ section('Oportunidade', 'Preços', 'que caíram') }}
+<tr><td class="px" style="padding:12px 34px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+  {%- for r in ch.drops[:10] %}{{ row(r, r.city ~ '/' ~ r.uf ~ ' · ' ~ src[r.source_id], brl(r.min_bid), 'antes <s>' ~ brl(r.old_bid) ~ '</s>', '-' ~ '%.0f%%'|format(r.drop_pct)) }}{% endfor %}
+</table></td></tr>
+{%- endif %}
+
+{%- if not upd and ranking %}
+{{ section('Ranking', 'Maiores descontos', 'abertos') }}
+<tr><td class="px" style="padding:12px 34px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+  {%- for r in ranking[:8] %}{{ row(r, r.city ~ '/' ~ r.uf ~ ' · ' ~ src[r.source_id], brl(r.min_bid), '<s>' ~ brl(r.appraisal_value) ~ '</s>', '%.0f%%'|format(r.discount_pct)) }}{% endfor %}
+</table></td></tr>
+{%- endif %}
+
+{%- set vm = (ch.new_veh.moto if upd and ch else motos) -%}
+{%- set va = (ch.new_veh.automovel if upd and ch else autos) -%}
+{%- if vm or va %}
+{{ section('Veículos', 'Automóveis e motocicletas', 'novos' if upd else 'em leilão') }}
+{%- if va %}
+<tr><td class="px" style="padding:14px 34px 0;font:700 11px/1 {{ sans }};color:{{ ink }};letter-spacing:2px;text-transform:uppercase;">Automóveis</td></tr>
+<tr><td class="px" style="padding:8px 34px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">{{ vrows(va[:6]) }}</table></td></tr>
+{%- endif %}
+{%- if vm %}
+<tr><td class="px" style="padding:18px 34px 0;font:700 11px/1 {{ sans }};color:{{ ink }};letter-spacing:2px;text-transform:uppercase;">Motocicletas</td></tr>
+<tr><td class="px" style="padding:8px 34px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">{{ vrows(vm[:6]) }}</table></td></tr>
+{%- endif %}
+{%- endif %}
+
+{%- if not upd and realized %}
+{{ section('Preço realizado', 'Quanto os lotes', 'realmente saíram') }}
+<tr><td class="px" style="padding:4px 34px 0;"><p style="margin:6px 0 0;font:13px/1.55 {{ sans }};color:{{ muted }};">Leilões já encerrados na região: lance inicial e lance vencedor. É a melhor referência de quanto disputar.</p></td></tr>
+<tr><td class="px" style="padding:10px 34px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+  {%- for r in realized[:6] %}{{ row(r, r.city ~ '/' ~ r.uf ~ ' · ' ~ (r.comitente or src[r.source_id]), brl(r.final_price), 'saiu de ' ~ brl(r.min_bid), '+' ~ '%.0f%%'|format(r.uplift) if r.uplift is not none else '') }}{% endfor %}
+</table></td></tr>
+{%- endif %}
+
+{%- if ch and ch.closed %}
+{{ section('Encerrados', 'Saíram', 'do mercado') }}
+<tr><td class="px" style="padding:12px 34px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+  {%- for r in ch.closed[:8] %}{{ row(r, r.city ~ '/' ~ r.uf ~ ' · ' ~ src[r.source_id], brl(r.final_price or r.min_bid), 'arrematado' if r.final_price else 'retirado ou vendido', '') }}{% endfor %}
+</table></td></tr>
+{%- endif %}
+
+{%- if not upd and agenda %}
+{{ section('Agenda', 'Leilões do Detran-BA', 'na região') }}
 <tr><td class="px" style="padding:14px 34px 0;">
   {%- for a in agenda %}
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid {{ line }};"><tr>
@@ -137,7 +208,7 @@
     </td>
     <td valign="top" style="padding:14px 0;font:13px/1.45 {{ sans }};color:{{ ink }};">
       <a href="{{ a.url }}" style="color:{{ ink }};text-decoration:none;"><b>{{ a.title }}</b></a><br>
-      {% if a.near %}<span style="color:{{ golddeep }};font-weight:600;">Mais perto: {{ a.near|join(', ') }}</span>{% else %}<span style="color:{{ muted }};">{{ a.neighborhood }}</span>{% endif %}
+      <span style="color:{{ golddeep }};font-weight:600;">Pátios na região: {{ a.near|join(', ') if a.near else a.neighborhood }}</span>
     </td>
   </tr></table>
   {%- endfor %}
@@ -151,7 +222,7 @@
 <tr><td class="px" style="padding:40px 34px 10px;">
   <div style="font:700 10px/1 {{ sans }};color:{{ gold }};letter-spacing:4px;text-transform:uppercase;">Seu perfil</div>
   <h2 style="margin:12px 0 0;font:700 30px/1.15 {{ serif }};color:{{ ivory }};">Receba só o que <i style="font-weight:400;color:{{ gold }};">combina</i> com você.</h2>
-  <p style="margin:14px 0 0;font:15px/1.6 {{ sans }};color:#bdb6aa;">Diga a cidade, a faixa de preço e o desconto mínimo que procura. O Radar avisa por e-mail e WhatsApp assim que um lote assim aparecer, e prepara o relatório jurídico completo do lote em que você vai dar lance.</p>
+  <p style="margin:14px 0 0;font:15px/1.6 {{ sans }};color:#bdb6aa;">Diga a cidade, a faixa de preço e o desconto mínimo que procura. O Radar avisa assim que um lote assim aparecer e prepara o relatório jurídico completo do lote em que você vai dar lance.</p>
   {%- if contact %}
   <div style="margin-top:22px;"><a href="mailto:{{ contact }}?subject=Quero%20meu%20perfil%20no%20Radar%20de%20Leil%C3%B5es" style="display:inline-block;background:{{ gold }};color:{{ onyx }};font:700 12px/1 {{ sans }};letter-spacing:2.5px;text-transform:uppercase;text-decoration:none;padding:16px 24px;border-radius:4px;">Configurar meu perfil</a></div>
   {%- endif %}
@@ -160,7 +231,7 @@
 <!-- RODAPÉ -->
 <tr><td class="px" style="padding:34px 34px 30px;">
   <div style="height:1px;background:#2a2d34;"></div>
-  <p style="margin:18px 0 0;font:11px/1.6 {{ sans }};color:#7a756c;"><b style="color:#a39d92;">Fontes desta edição:</b> {% for s, n in k.by_src.items() %}{{ src[s] }} ({{ '{:,}'.format(n).replace(',', '.') }}){% if not loop.last %} · {% endif %}{% endfor %} lotes monitorados. Dados de {{ hoje }}. Distâncias em linha reta até {{ base }}.</p>
+  <p style="margin:18px 0 0;font:11px/1.6 {{ sans }};color:#7a756c;"><b style="color:#a39d92;">Fontes:</b> {% for s, n in k.by_src.items() %}{{ src.get(s, s) }} ({{ '{:,}'.format(n).replace(',', '.') }}){% if not loop.last %} · {% endif %}{% endfor %} lotes monitorados. Dados de {{ hoje }}. Região: Espírito Santo e entorno de {{ base }} (MG e BA).</p>
   <p style="margin:8px 0 0;font:11px/1.6 {{ sans }};color:#7a756c;">{{ disclaimer }} Confira sempre o edital oficial.</p>
 </td></tr>
 

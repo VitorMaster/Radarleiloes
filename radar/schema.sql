@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS lots (
     lot_count        INTEGER,                  -- >0 quando o registro é um edital com vários lotes
     distance_km      REAL,                     -- linha reta até a cidade-base (geo.py)
     in_area          INTEGER,                  -- 1 se atende ao parâmetro geográfico do cliente
+    final_price      REAL,                     -- lance vencedor, quando a fonte divulga (preço realizado)
     status           TEXT NOT NULL DEFAULT 'aberto', -- aberto | encerrado | removido
     content_hash     TEXT,                     -- detecta mudança no anúncio
     first_seen_at    TEXT NOT NULL,
@@ -72,7 +73,10 @@ CREATE TABLE IF NOT EXISTS lot_veiculo (
     origin          TEXT,      -- sinistro, financiamento, apreensão...
     runs            INTEGER,   -- roda ou não
     has_key         INTEGER,
-    classification  TEXT       -- sucata | recuperavel | documentavel
+    classification  TEXT,      -- conservado | sucata | recuperavel ...
+    vehicle_type    TEXT,      -- moto | automovel | caminhao | outro (radar/vehicles.py)
+    color           TEXT,
+    fuel            TEXT
 );
 
 -- Nota de conservação (A–D ou 'sem_info'), sempre com justificativa e evidência.
@@ -141,4 +145,15 @@ CREATE TABLE IF NOT EXISTS profiles (
     min_grade        TEXT,             -- A | B | C | D
     active           INTEGER NOT NULL DEFAULT 1,
     created_at       TEXT NOT NULL
+);
+
+-- Cada execução da rotina diária (segunda completa, terça a sexta atualização, sábado semanal).
+CREATE TABLE IF NOT EXISTS routine_runs (
+    id           INTEGER PRIMARY KEY,
+    mode         TEXT NOT NULL,
+    started_at   TEXT NOT NULL,
+    finished_at  TEXT,
+    ok           INTEGER NOT NULL DEFAULT 0,
+    since        TEXT,
+    summary      TEXT
 );

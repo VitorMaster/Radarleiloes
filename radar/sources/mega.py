@@ -9,6 +9,7 @@ import re
 from typing import Iterable
 
 from ..models import ImovelInfo, Lot, VeiculoInfo
+from ..vehicles import classify
 from .base import Source
 from .caixa import parse_brl
 from .htmlutil import iso_dates, legal_signal_summary, page_lines, split_blocks, strip_names, text
@@ -145,7 +146,8 @@ class MegaSource(Source):
                                     else float(area.group(1).replace(".", "")) if area else None)
             else:
                 year = re.search(r"\b(19[5-9]\d|20[0-3]\d)\b", title)
-                veiculo = VeiculoInfo(model=title.split(" - ")[0], year=int(year.group(1)) if year else None)
+                veiculo = VeiculoInfo(model=title.split(" - ")[0], year=int(year.group(1)) if year else None,
+                                      vehicle_type=classify(title, subcat))
 
             yield Lot(
                 source_id=self.id, external_id=ext_id, category=category, url=url, title=f"{title.split(' - ')[0]} em {city or lot_uf.upper()}",

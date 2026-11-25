@@ -78,6 +78,21 @@ def cmd_report(args) -> int:
     return 0
 
 
+def cmd_rotina(args) -> int:
+    from pathlib import Path
+
+    from .digest import send_email
+    from .rotina import run
+    with closing(connect(args.db)) as conn:
+        man = run(conn, args.out, mode=None if args.modo == "auto" else args.modo, capture=not args.sem_captura)
+    if man and args.to:
+        html = Path(man["html"]).read_text(encoding="utf-8")
+        ok = send_email(args.to, man["subject"], html, [i["path"] for i in man["inline_images"]],
+                        [man["pdf"]["path"]] if man["pdf"] else None)
+        print("Enviado por SMTP." if ok else "SMTP não configurado: use o manifesto para enviar.")
+    return 0
+
+
 def cmd_regiao(args) -> int:
     from . import geo
     from .pipeline import backfill_geo
@@ -151,6 +166,13 @@ def main(argv: list[str] | None = None) -> int:
     d.set_defaults(func=cmd_digest)
 
     sub.add_parser("health", help="monitor das fontes").set_defaults(func=cmd_health)
+
+    ro = sub.add_parser("rotina", help="rotina diária: seg completa, ter-sex atualização, sáb resumo semanal")
+    ro.add_argument("--modo", default="auto", choices=["auto", "completo", "atualizacao", "semanal"])
+    ro.add_argument("--out", default="data/relatorio")
+    ro.add_argument("--to", help="enviar por SMTP para este e-mail")
+    ro.add_argument("--sem-captura", action="store_true", help="só gera o relatório com os dados atuais")
+    ro.set_defaults(func=cmd_rotina)
 
     sub.add_parser("regiao", help="recalcula distância/área (após mudar cidade-base ou raio)").set_defaults(func=cmd_regiao)
 

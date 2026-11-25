@@ -12,6 +12,7 @@ from typing import Iterable
 
 from ..models import Lot, VeiculoInfo
 from .base import Source
+from ..vehicles import classify, pretty_city, pretty_model
 from .htmlutil import iso_dates, text
 
 BASE = "https://www.ba.gov.br"
@@ -43,7 +44,44 @@ class DetranBASource(Source):
             lot = self.parse_detail(self.get(BASE + path).text, ext_id, BASE + path)
             if lot:
                 lots.append(lot)
+                if self.vehicles and lot.address:
+                    try:
+                        lots += self.vehicle_lots(lot, ext_id)
+                    except Exception as exc:  # noqa: BLE001 — PDF fora do padrão não derruba a captura
+                        print(f"  detran_ba: anexo do edital {ext_id} ilegível: {exc}")
         return lots
+
+    vehicles = True
+
+    def vehicle_lots(self, edital: Lot, ext_id: str) -> list[Lot]:
+        import io
+
+        import pypdf
+        pdf = pypdf.PdfReader(io.BytesIO(self.get(edital.address).content))
+        text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+        out = []
+        for r in parse_annex(text):
+            vtype = classify(r["model"])
+            label = pretty_model(r["model"])
+            year = f"{r['year_fab']}/{r['year']}" if r["year"] else "ano n/i"
+            cls = "Conservado" if r["classification"] == "conservado" else (r["sucata_detail"] or "Sucata")
+            price = f"R$ {r['value']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            patio = pretty_city(r["patio"] or "")
+            out.append(Lot(
+                source_id=self.id, external_id=f"{ext_id}-{(r['patio'] or '').lower().replace(' ', '_')}-{r['lote']}",
+                category="veiculo", url=edital.url, title=f"{label} {r['year'] or ''}".strip(),
+                leiloeiro=edital.leiloeiro, comitente="Detran-BA",
+                sale_type=f"{edital.title.split(' — ')[0]} · lote {r['lote']}", auction_date=edital.auction_date,
+                min_bid=r["value"], city=r["city"], uf="BA", neighborhood=f"Pátio {patio}",
+                description=(f"{label}, {year}, {r['color'] or 'cor n/i'}, {r['fuel'] or 'combustível n/i'}. "
+                             f"{cls}. Lance mínimo {price}. Pátio: {patio}. "
+                             "Vendido no estado em que se encontra; visitação conforme edital."),
+                veiculo=VeiculoInfo(brand=r["model"].split("/")[0].title() if "/" in r["model"] else None,
+                                    model=label, year=r["year"], classification=r["classification"],
+                                    origin="apreensão/remoção (Detran)", vehicle_type=vtype,
+                                    color=r["color"], fuel=r["fuel"]),
+            ))
+        return out
 
     def parse_detail(self, page: str, ext_id: str, url: str) -> Lot | None:
         body = re.sub(r"<script.*?</script>|<style.*?</style>", "", page, flags=re.S)
@@ -78,3 +116,68 @@ class DetranBASource(Source):
             photo_url=None, veiculo=VeiculoInfo(origin="apreensão/remoção (Detran)"),
             address=BASE + pdf.group(1) if pdf else None,
         )
+
+
+# --- Anexo I do edital: um registro por veículo ---------------------------------
+
+HEAD_RE = re.compile(r"\n\s*([A-ZÀ-Ú][A-ZÀ-Ú .'-]{2,40}?)\s*\n\s*LOTE PLACA CHASSI")
+ROW_START = re.compile(r"(?:^|\n)\s*(\d{1,4}) (?=(?:\d{1,4} )?(?:SUPRIMIDO|EMPLAC\w*|[A-Z]{3}\d[A-Z0-9]\d{2}|\*+|-|N/I) )")
+PAGE_HDR = re.compile(r"DEPARTAMENTO ESTADUAL DE TRÂNSITO – EDITAL[^\n]*\n")
+SUFFIX = re.compile(r"\s+(DP|ADM|FR|PRF|PM|PC)$")  # "TEIXEIRA DE FREITAS DP" = pátio da delegacia
+
+
+def parse_annex(text: str) -> list[dict]:
+    """Lê a tabela do Anexo I. Não guarda placa, chassi nem Renavam (LGPD/segurança)."""
+    start = text.find("ANEXO I")
+    if start < 0:
+        return []
+    t = PAGE_HDR.sub("", text[start:])
+    heads = [(m.start(), m.group(1).strip()) for m in HEAD_RE.finditer(t)]
+    starts = [(m.start(), m.group(1)) for m in ROW_START.finditer(t)]
+    rows = []
+    for i, (pos, num) in enumerate(starts):
+        end = starts[i + 1][0] if i + 1 < len(starts) else len(t)
+        nxt_head = next((hp for hp, _ in heads if pos < hp < end), None)
+        chunk = re.sub(r"\s+", " ", t[pos:nxt_head or end]).strip()
+        value = re.findall(r"R\$ ?([\d.]+,\d{2})", chunk)
+        if not value:
+            continue
+        toks = chunk.split(" ")[1:]
+        if toks and toks[0].isdigit():
+            toks = toks[1:]  # coluna extra de numeração em alguns editais
+        toks = toks[2:]  # placa e chassi
+        model = []
+        for tok in toks:
+            if tok in ("SUPRIMIDO", "N/I") or re.fullmatch(r"\d{8,11}|\*+\w*", tok):
+                break
+            model.append(tok)
+        rest = toks[len(model) + 1:]
+        uf = rest[0] if rest else None
+        year = re.search(r"\b(\d{4})/(\d{4})\b", chunk)
+        color = None
+        if len(rest) > 1:
+            color_toks = []
+            for tok in rest[1:]:
+                if re.fullmatch(r"\d{4}/\d{4}|N/I/N/I|N/I", tok):
+                    break
+                color_toks.append(tok)
+            color = " ".join(color_toks) or None
+        fuel = None
+        if year:
+            after = chunk[year.end():].strip().split(" ")
+            fuel = after[0] if after and after[0] not in ("N/I",) else None
+        cls = "conservado" if "CONSERVADO" in chunk else "sucata"
+        city = None
+        for hp, name in heads:
+            if hp < pos:
+                city = name
+        rows.append({
+            "lote": int(num), "patio": city, "city": pretty_city(SUFFIX.sub("", city or "")) or None,
+            "model": " ".join(model).strip() or "Veículo", "uf": uf if uf and len(uf) == 2 and uf != "N/" else None,
+            "color": color.title() if color else None, "fuel": fuel.title() if fuel else None,
+            "year_fab": int(year.group(1)) if year else None, "year": int(year.group(2)) if year else None,
+            "classification": cls, "value": float(value[-1].replace(".", "").replace(",", ".")),
+            "sucata_detail": None if cls == "conservado" else re.sub(
+                r".*?(SUCATA.*?)R\$.*", r"\1", chunk).strip().capitalize(),
+        })
+    return rows

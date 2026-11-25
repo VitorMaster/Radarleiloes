@@ -79,18 +79,25 @@ def upsert_lot(conn: sqlite3.Connection, lot: Lot, ts: str) -> tuple[int, str | 
         appraisal_value=lot.appraisal_value, min_bid=lot.min_bid, discount_pct=lot.discount_pct,
         city=lot.city, uf=lot.uf, neighborhood=lot.neighborhood, address=lot.address,
         description=lot.description, photo_url=lot.photo_url, lot_count=lot.lot_count, content_hash=h,
-        distance_km=dist, in_area=area,
+        distance_km=dist, in_area=area, final_price=lot.final_price,
     )
+    closed = lot.status != "aberto"  # a própria fonte informa que o lote foi vendido/encerrado
     event: str | None
     if row is None:
         cols = ", ".join(fields)
         cur = conn.execute(
-            f"""INSERT INTO lots (source_id, external_id, {cols}, status, first_seen_at, last_seen_at)
-                VALUES (?, ?, {", ".join("?" * len(fields))}, 'aberto', ?, ?)""",
-            (lot.source_id, lot.external_id, *fields.values(), ts, ts),
+            f"""INSERT INTO lots (source_id, external_id, {cols}, status, first_seen_at, last_seen_at, closed_at)
+                VALUES (?, ?, {", ".join("?" * len(fields))}, ?, ?, ?, ?)""",
+            (lot.source_id, lot.external_id, *fields.values(), lot.status, ts, ts, ts if closed else None),
         )
         lot_id = cur.lastrowid
-        event = "novo"
+        event = "arrematado" if closed else "novo"
+    elif closed:
+        lot_id = row["id"]
+        sets = ", ".join(f"{k}=?" for k in fields)
+        conn.execute(f"UPDATE lots SET {sets}, status=?, last_seen_at=?, closed_at=COALESCE(closed_at, ?) WHERE id=?",
+                     (*fields.values(), lot.status, ts, ts, lot_id))
+        event = "arrematado" if row["status"] == "aberto" else None
     else:
         lot_id = row["id"]
         sets = ", ".join(f"{k}=?" for k in fields)
@@ -109,6 +116,8 @@ def upsert_lot(conn: sqlite3.Connection, lot: Lot, ts: str) -> tuple[int, str | 
 
     if event in ("novo", "preco_alterado", "reaberto"):
         _observe(conn, lot_id, lot.min_bid, lot.appraisal_value, "aberto", event, ts)
+    elif event == "arrematado":
+        _observe(conn, lot_id, lot.final_price or lot.min_bid, lot.appraisal_value, lot.status, event, ts)
 
     if lot.imovel:
         d = asdict(lot.imovel)
