@@ -110,7 +110,7 @@
 <tr><td class="px" style="padding:40px 34px 10px;">
   <div style="font:700 10px/1 {{ sans }};color:{{ golddeep }};letter-spacing:4px;text-transform:uppercase;">{{ 'Hoje' if upd else 'Nesta edição' }}</div>
   <h2 style="margin:10px 0 0;font:700 26px/1.2 {{ serif }};color:{{ ink }};">Nenhuma novidade <i style="font-weight:400;color:{{ golddeep }};">{{ 'desde o último envio' if upd else 'que passe na regra' }}</i></h2>
-  <p style="margin:10px 0 0;font:14px/1.6 {{ sans }};color:{{ muted }};">{% if radar == 'eletronicos' %}As fontes foram verificadas, mas nenhum eletrônico em leilão tinha evidência de ser novo (lacrado, na caixa ou de estoque de fábrica). Lotes de devolução, usados ou "no estado" foram descartados, como manda a regra do radar.{% else %}As fontes foram verificadas e nada mudou. Os lotes abertos continuam disponíveis; o panorama completo chega na segunda-feira.{% endif %}</p>
+  <p style="margin:10px 0 0;font:14px/1.6 {{ sans }};color:{{ muted }};">{% if radar == 'eletronicos' %}As fontes foram verificadas e nenhum novo eletrônico lacrado, na caixa ou de estoque de fábrica entrou em leilão. Lotes de devolução, usados ou "no estado" continuam descartados, como manda a regra do radar; os lotes novos já listados seguem abertos.{% else %}As fontes foram verificadas e nada mudou. Os lotes abertos continuam disponíveis; o panorama completo chega na segunda-feira.{% endif %}</p>
 </td></tr>
 {%- endif %}
 
