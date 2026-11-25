@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="kpis">
+  <div class="card kpi"><span class="muted small">Lotes abertos</span><b>{{ stats.abertos or 0 }}</b></div>
+  <div class="card kpi"><span class="muted small">Desconto médio</span><b>{{ "%.0f"|format(stats.desconto_medio or 0) }}%</b></div>
+  <div class="card kpi"><span class="muted small">Encerrados (histórico)</span><b>{{ stats.encerrados or 0 }}</b></div>
+  <div class="card kpi"><span class="muted small">Com nota de conservação</span><b>{{ stats.graded.values()|sum }}</b></div>
+</div>
+<form class="filters card" method="get">
+  <label>Categoria<select name="category"><option value="">Todas</option>
+    {% for v,l in [('imovel','Imóveis'),('veiculo','Veículos')] %}<option value="{{v}}" {{'selected' if args.category==v}}>{{l}}</option>{% endfor %}</select></label>
+  <label>UF<select name="uf"><option value="">Todas</option>{% for u in ufs %}<option {{'selected' if args.uf==u}}>{{u}}</option>{% endfor %}</select></label>
+  <label>Cidade<input name="city" value="{{ args.city or '' }}" size="12"></label>
+  <label>Desconto mín. %<input name="min_discount" value="{{ args.min_discount or '' }}" size="4"></label>
+  <label>Preço máx. R$<input name="max_price" value="{{ args.max_price or '' }}" size="9"></label>
+  <label>Risco até<select name="max_risk"><option value="">Qualquer</option>{% for v in ['baixo','medio','alto'] %}<option {{'selected' if args.max_risk==v}}>{{v}}</option>{% endfor %}</select></label>
+  <label>Conservação até<select name="min_grade"><option value="">Qualquer</option>{% for v in ['A','B','C','D'] %}<option {{'selected' if args.min_grade==v}}>{{v}}</option>{% endfor %}</select></label>
+  <label>Busca<input name="q" value="{{ args.q or '' }}" size="12"></label>
+  <label>Ordenar<select name="order">{% for v,l in [('desconto','Maior desconto'),('preco','Menor preço'),('recentes','Mais recentes'),('data','Data do leilão')] %}<option value="{{v}}" {{'selected' if args.order==v}}>{{l}}</option>{% endfor %}</select></label>
+  <button>Filtrar</button>
+</form>
+<div class="card table-wrap">
+<table>
+<tr><th>Lote</th><th>Local</th><th>Modalidade</th><th class="num">Avaliação</th><th class="num">Lance mín.</th><th class="num">Desconto</th><th>Conserv.</th><th>Risco</th></tr>
+{% for l in lots %}
+<tr>
+  <td><a href="/lote/{{ l.id }}">{{ l.title }}</a><div class="muted small">{{ l.source_name }}{% if l.area_privativa_m2 %} · {{ l.area_privativa_m2|round(0)|int }} m²{% endif %}{% if l.bedrooms %} · {{ l.bedrooms }} qto{% endif %}</div></td>
+  <td>{{ l.city }}/{{ l.uf }}<div class="muted small">{{ l.neighborhood or '' }}</div></td>
+  <td class="small">{{ l.sale_type or '—' }}</td>
+  <td class="num">{{ brl(l.appraisal_value) }}</td>
+  <td class="num"><b>{{ brl(l.min_bid) }}</b></td>
+  <td class="num">{{ "%.0f%%"|format(l.discount_pct) if l.discount_pct is not none else '—' }}</td>
+  <td><span class="pill g-{{ l.grade or 'none' }}" title="{{ l.justification or 'ainda não avaliado' }}">{{ 'sem info' if l.grade=='sem_info' else (l.grade or '…') }}</span></td>
+  <td><span class="pill r-{{ l.risk_level or 'none' }}">{{ (l.risk_level or '…')|replace('sem_info','sem info') }}</span>{% if l.human_reviewed %} ✔︎{% endif %}</td>
+</tr>
+{% else %}
+<tr><td colspan="8" class="muted">Nenhum lote com esses filtros. Rode <code>radar capture</code> para captar.</td></tr>
+{% endfor %}
+</table>
+</div>
+{% if lots|length == 50 %}<a href="?{% for k,v in args.items() if k!='page' %}{{k}}={{v|urlencode}}&{% endfor %}page={{ page+1 }}">Próxima página →</a>{% endif %}
+{% endblock %}

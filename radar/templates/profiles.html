@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Perfis de alerta</h2>
+<p class="muted">Cada perfil recebe um resumo diário só com os lotes novos que batem com os filtros.</p>
+<form class="filters card" method="post">
+  <label>Nome*<input name="name" required></label>
+  <label>E-mail<input name="email" type="email"></label>
+  <label>WhatsApp<input name="whatsapp"></label>
+  <label>Categoria<select name="category"><option value="imovel">Imóveis</option><option value="veiculo">Veículos</option></select></label>
+  <label>UFs<select name="ufs" multiple size="3">{% for u in ufs %}<option selected>{{u}}</option>{% endfor %}</select></label>
+  <label>Cidades (vírgula)<input name="cities"></label>
+  <label>Desconto mín. %<input name="min_discount_pct" size="4" value="30"></label>
+  <label>Preço máx. R$<input name="max_price" size="9"></label>
+  <label>Risco até<select name="max_risk"><option value="">Qualquer</option><option>baixo</option><option selected>medio</option><option>alto</option></select></label>
+  <label>Conservação até<select name="min_grade"><option value="">Qualquer</option><option>A</option><option>B</option><option>C</option><option>D</option></select></label>
+  <button>Criar perfil</button>
+</form>
+<div class="card table-wrap"><table>
+<tr><th>Nome</th><th>Contato</th><th>Filtros</th></tr>
+{% for p in profiles %}<tr><td>{{ p.name }}</td><td class="small">{{ p.email or '' }} {{ p.whatsapp or '' }}</td>
+<td class="small">{{ p.category }} · {{ p.ufs or 'todas UFs' }}{% if p.cities %} · {{ p.cities }}{% endif %}{% if p.min_discount_pct %} · ≥{{ p.min_discount_pct|int }}%{% endif %}{% if p.max_price %} · ≤ {{ brl(p.max_price) }}{% endif %}{% if p.max_risk %} · risco ≤ {{ p.max_risk }}{% endif %}{% if p.min_grade %} · conserv. ≤ {{ p.min_grade }}{% endif %}</td></tr>
+{% else %}<tr><td colspan="3" class="muted">Nenhum perfil ainda.</td></tr>{% endfor %}
+</table></div>
+{% endblock %}

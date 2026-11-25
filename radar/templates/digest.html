@@ -1,0 +1,14 @@
+<!doctype html><html lang="pt-BR"><body style="font-family:Arial,sans-serif;color:#1d1d1b;max-width:680px;margin:auto">
+<h2 style="margin-bottom:4px">📡 Radar de Leilões — {{ today }}</h2>
+<p style="color:#6b6b66;margin-top:0">{{ lots|length }} lote(s) novo(s) para o perfil <b>{{ profile.name }}</b></p>
+{% for l in lots %}
+<div style="border:1px solid #e4e3df;border-radius:8px;padding:12px;margin-bottom:10px">
+  <div style="font-weight:bold">{{ l.title }} — {{ l.city }}/{{ l.uf }}</div>
+  <div>Lance mínimo <b>{{ l.min_bid|brl }}</b> · avaliação {{ l.appraisal_value|brl }} · <b>{{ "%.0f%%"|format(l.discount_pct) if l.discount_pct is not none else '—' }}</b> de desconto</div>
+  <div style="font-size:13px;color:#6b6b66">{{ l.sale_type or '' }} · conservação: {{ l.grade or 'não avaliado' }} · risco jurídico: {{ l.risk_level or '—' }}</div>
+  {% if l.justification %}<div style="font-size:13px">{{ l.justification }}</div>{% endif %}
+  <a href="{{ l.url }}">Ver na fonte oficial</a>
+</div>
+{% endfor %}
+<p style="font-size:11px;color:#8a8a85">{{ disclaimer }}</p>
+</body></html>

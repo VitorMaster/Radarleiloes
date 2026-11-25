@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Monitor de fontes</h2>
+<div class="card table-wrap"><table>
+<tr><th>Fonte</th><th>Escopo</th><th>Última captura</th><th>Status</th><th class="num">Vistos</th><th class="num">Novos</th><th class="num">Alterados</th><th class="num">Encerrados</th><th>Alerta</th></tr>
+{% for r in runs %}<tr><td>{{ r.source_id }}</td><td>{{ r.scope }}</td><td class="small">{{ (r.finished_at or r.started_at)[:16]|replace('T',' ') }}</td>
+<td><span class="pill {{ 'g-A' if r.ok else 'g-D' }}">{{ 'ok' if r.ok else 'falhou' }}</span></td>
+<td class="num">{{ r.lots_seen }}</td><td class="num">{{ r.lots_new }}</td><td class="num">{{ r.lots_changed }}</td><td class="num">{{ r.lots_closed }}</td>
+<td class="small">{{ r.alert or r.error or '' }}</td></tr>
+{% else %}<tr><td colspan="9" class="muted">Nenhuma captura ainda.</td></tr>{% endfor %}
+</table></div>
+<h3>Fontes cadastradas</h3>
+<div class="card table-wrap"><table><tr><th>Id</th><th>Nome</th><th>Camada</th><th>Leiloeiro/órgão</th><th>Verificada</th></tr>
+{% for s in sources %}<tr><td>{{ s.id }}</td><td>{{ s.name }}</td><td>{{ s.layer }}</td><td>{{ s.leiloeiro or '' }}</td><td>{{ '✔︎' if s.verified else '—' }}</td></tr>{% endfor %}
+</table></div>
+{% endblock %}

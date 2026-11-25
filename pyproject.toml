@@ -1,0 +1,25 @@
+[project]
+name = "radarleiloes"
+version = "0.1.0"
+description = "Radar de Leilões: lotes de imóveis e veículos comparáveis por desconto, conservação e risco jurídico (ES, MG, BA)."
+requires-python = ">=3.11"
+dependencies = [
+  "anthropic>=2.14",
+  "fastapi>=0.165",
+  "uvicorn>=0.54",
+  "jinja2>=3.1",
+  "requests>=2.32",
+  "pydantic>=2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "httpx2"]
+
+[project.scripts]
+radar = "radar.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["radar*"]
+
+[tool.setuptools.package-data]
+radar = ["templates/*.html", "schema.sql"]
