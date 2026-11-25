@@ -24,16 +24,4 @@ export RADAR_DB="data/radar.db"
 rm -rf data/relatorio
 radar rotina --modo "$MODE" --out data/relatorio
 
-# salva o banco: commit órfão com um único arquivo, sem acumular histórico
-tmp="$(mktemp -d)"
-gzip -9 -c data/radar.db > "$tmp/radar.db.gz"
-blob="$(git hash-object -w "$tmp/radar.db.gz")"
-tree="$(printf '100644 blob %s\tradar.db.gz\n' "$blob" | git mktree)"
-commit="$(GIT_AUTHOR_NAME="Radar de Leilões" GIT_AUTHOR_EMAIL="radar@localhost" \
-          GIT_COMMITTER_NAME="Radar de Leilões" GIT_COMMITTER_EMAIL="radar@localhost" \
-          git commit-tree "$tree" -m "Radar: banco de dados de $(date -u +%Y-%m-%d)")"
-for i in 1 2 3 4; do
-  git push -q -f origin "$commit:refs/heads/$DATA_BRANCH" && break
-  sleep $((2 ** i))
-done
-echo "Histórico salvo em $DATA_BRANCH ($(du -h "$tmp/radar.db.gz" | cut -f1))."
+bash scripts/salvar_historico.sh

@@ -60,7 +60,14 @@ class DetranBASource(Source):
         pdf = pypdf.PdfReader(io.BytesIO(self.get(edital.address).content))
         text = "\n".join(page.extract_text() or "" for page in pdf.pages)
         out = []
+        seen: dict[str, int] = {}
         for r in parse_annex(text):
+            key = f"{ext_id}-{(r['patio'] or '').lower().replace(' ', '_')}-{r['lote']}"
+            seen[key] = seen.get(key, 0) + 1  # editais repetem seções de pátio: 2ª ocorrência ganha sufixo
+            if seen[key] > 1:
+                key += f"-{seen[key]}"
+            if re.search(r"R\$|\bSIM\b|\b\d{4} \d{4}\b", r["model"]):
+                r["model"] = "Veículo (descrição incompleta no edital)"
             vtype = classify(r["model"])
             label = pretty_model(r["model"])
             year = f"{r['year_fab']}/{r['year']}" if r["year"] else "ano n/i"
@@ -68,7 +75,7 @@ class DetranBASource(Source):
             price = f"R$ {r['value']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             patio = pretty_city(r["patio"] or "")
             out.append(Lot(
-                source_id=self.id, external_id=f"{ext_id}-{(r['patio'] or '').lower().replace(' ', '_')}-{r['lote']}",
+                source_id=self.id, external_id=key,
                 category="veiculo", url=edital.url, title=f"{label} {r['year'] or ''}".strip(),
                 leiloeiro=edital.leiloeiro, comitente="Detran-BA",
                 sale_type=f"{edital.title.split(' — ')[0]} · lote {r['lote']}", auction_date=edital.auction_date,
