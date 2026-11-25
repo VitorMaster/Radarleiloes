@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import time
 from abc import ABC, abstractmethod
 from typing import Iterable
 
+import requests
+
 from ..models import Lot
 
-# Identificação honesta do robô. Sem dados pessoais do operador.
-USER_AGENT = "RadarLeiloesBot/0.1 (+monitoramento de editais publicos)"
+# Identifica o robô de forma honesta, sem dados pessoais do operador.
+USER_AGENT = "Mozilla/5.0 (compatible; RadarLeiloesBot/0.2; +monitoramento de editais publicos)"
 
 
 class Source(ABC):
@@ -14,7 +17,8 @@ class Source(ABC):
 
     Regras do projeto (ver docs/fontes.md):
     - preferir feed/arquivo oficial a raspagem de HTML;
-    - respeitar termos de uso, robots.txt e limites de acesso;
+    - respeitar termos de uso, robots.txt e limites de acesso (1 req/s);
+    - não contornar tokens anti-robô nem áreas logadas;
     - sempre guardar o link da fonte em cada lote;
     - não coletar dados pessoais do executado/devedor.
     """
@@ -24,7 +28,23 @@ class Source(ABC):
     layer: int
     leiloeiro: str | None = None
     verified: bool = False
-    scopes: tuple[str, ...] = ()  # ex.: UFs
+    scopes: tuple[str, ...] = ("ES", "MG", "BA")
+    delay_s: float = 1.0
+
+    def __init__(self, session: requests.Session | None = None, timeout: int = 60):
+        self.session = session or requests.Session()
+        self.session.headers["User-Agent"] = USER_AGENT
+        self.timeout = timeout
+        self._last = 0.0
+
+    def get(self, url: str, **kw) -> requests.Response:
+        wait = self.delay_s - (time.monotonic() - self._last)
+        if wait > 0:
+            time.sleep(wait)
+        r = self.session.get(url, timeout=self.timeout, **kw)
+        self._last = time.monotonic()
+        r.raise_for_status()
+        return r
 
     @abstractmethod
     def fetch(self, scope: str) -> Iterable[Lot]:

@@ -119,3 +119,64 @@ def test_web(tmp_path, monkeypatch):
     r = client.post("/perfis", data={"name": "Teste", "category": "imovel", "ufs": ["ES"], "min_discount_pct": "30"})
     assert r.status_code == 200 and "Teste" in r.text
     assert len(client.get("/api/lotes?uf=ES").json()) == 3
+
+
+# --- novas fontes -----------------------------------------------------------
+
+def _fx(name):
+    return (Path(__file__).parent / "fixtures" / name).read_text(encoding="utf-8")
+
+
+def test_caixa_header_and_financing():
+    lots = caixa_lots()
+    assert lots[0].imovel.accepts_financing is True and lots[1].imovel.accepts_financing is False
+    assert lots[0].photo_url.endswith("F844440001234521.jpg")
+
+
+def test_zuk_parser_and_enrich():
+    from radar.risk import evaluate
+    from radar.sources.zuk import ZukSource
+    lots = list(ZukSource().parse(_fx("zuk_list.html"), "MG"))
+    assert len(lots) == 2  # "Aberto para proposta" sem preço é ignorado
+    casa, apto = lots
+    assert casa.city == "Juiz de Fora" and casa.neighborhood == "Centro" and casa.comitente == "Itaú Unibanco S/A"
+    assert casa.min_bid == 160000 and casa.discount_pct == 60.0 and casa.imovel.area_privativa_m2 == 147
+    assert apto.uf == "ES" and apto.praca == 2 and apto.min_bid == 600000 and apto.discount_pct == 40.0
+    ZukSource.enrich(casa, _fx("zuk_detail.html"))
+    assert casa.imovel.occupied is True
+    assert "penhora ×1" in casa.description  # a cláusula genérica "Caso haja penhora" não conta
+    level, reasons, _ = evaluate(casa)
+    assert level == "alto" and "IPTU/débitos anteriores quitados pelo vendedor" in reasons
+
+
+def test_mega_parser_enrich_and_lgpd():
+    from radar.risk import evaluate
+    from radar.sources.mega import MegaSource
+    lots = list(MegaSource().parse(_fx("mega_list.html"), "BA"))
+    assert [l.category for l in lots] == ["imovel", "veiculo"]
+    im = lots[0]
+    assert im.min_bid == 345132.27 and im.appraisal_value == 690264.54 and im.praca == 2
+    assert im.comitente == "Poder Judiciário" and im.sale_type == "Leilão judicial"
+    assert lots[1].comitente == "Itaú Unibanco" and lots[1].veiculo.year == 2015
+    MegaSource.enrich(im, _fx("mega_detail.html"))
+    assert im.appraisal_value == 700000
+    assert "Fulano" not in im.description and "Fulana" not in im.description  # LGPD
+    assert "penhora ×1" in im.description and "indisponibilidade ×1" in im.description
+    assert evaluate(im)[0] == "alto"
+
+
+def test_detran_ba_detail():
+    from radar.sources.detran_ba import DetranBASource
+    lot = DetranBASource().parse_detail(_fx("detran_ba_detail.html"), "7765", "https://x")
+    assert lot.lot_count == 531 and lot.auction_date == "2099-12-10"
+    assert lot.title == "Leilão Detran-BA nº 25/2030 — 531 lotes" and lot.category == "veiculo"
+    assert lot.address.endswith("EDITAL.pdf")
+
+
+def test_report_renders(conn, tmp_path, monkeypatch):
+    from radar import report
+    monkeypatch.setattr(report, "_download", lambda url, folder: None)
+    run_capture(conn, CaixaSource(), "ES", caixa_lots())
+    rep = report.build_report(conn, tmp_path / "img")
+    assert "Oportunidades da semana" in rep["html"] and "Espírito Santo" in rep["html"]
+    assert rep["subject"].startswith("Radar de Leilões")

@@ -99,7 +99,7 @@ def grade_lot(lot: sqlite3.Row, photos: list[str] | None = None, client=None) ->
 def pending_lots(conn: sqlite3.Connection, limit: int, uf: str | None = None) -> list[sqlite3.Row]:
     """Lotes abertos sem nota ou cujo conteúdo mudou — maiores descontos primeiro."""
     q = """SELECT l.* FROM lots l LEFT JOIN conservation c ON c.lot_id = l.id
-           WHERE l.status='aberto' AND (c.lot_id IS NULL OR c.content_hash <> l.content_hash)"""
+           WHERE l.status='aberto' AND l.lot_count IS NULL AND (c.lot_id IS NULL OR c.content_hash <> l.content_hash)"""
     args: list = []
     if uf:
         q += " AND l.uf=?"

@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Radar de Leilões</title>
+<style>
+  @media only screen and (max-width: 480px) {
+    .outer { padding: 10px 4px !important; }
+    .px { padding-left: 16px !important; padding-right: 16px !important; }
+    .kpi-v { font-size: 19px !important; }
+    .kpi-l { font-size: 9px !important; letter-spacing: 0 !important; }
+    .hero { font-size: 25px !important; }
+  }
+</style>
+</head>
+<body style="margin:0;padding:0;background:#eef1f5;">
+{%- set navy = '#0f2a44' -%}{%- set gold = '#c8962e' -%}{%- set ink = '#1c2733' -%}{%- set muted = '#6b7785' -%}{%- set line = '#e3e8ee' -%}
+{%- macro risk_pill(level) -%}
+{%- set c = {'baixo': ('#e6f4ec', '#1e7a46', 'Risco baixo'), 'medio': ('#fdf3e2', '#9a6412', 'Risco médio'), 'alto': ('#fbe9e7', '#b23a2a', 'Risco alto')}.get(level, ('#eef1f5', '#5d6b7a', 'Risco a confirmar')) -%}
+<span style="display:inline-block;background:{{ c[0] }};color:{{ c[1] }};font:600 11px/1 Arial,Helvetica,sans-serif;padding:5px 8px;border-radius:20px;letter-spacing:.2px;">{{ c[2] }}</span>
+{%- endmacro -%}
+{%- macro occ_pill(o) -%}
+{%- if o == 0 -%}<span style="display:inline-block;background:#e6f4ec;color:#1e7a46;font:600 11px/1 Arial,Helvetica,sans-serif;padding:5px 8px;border-radius:20px;">Desocupado</span>
+{%- elif o == 1 -%}<span style="display:inline-block;background:#fdf3e2;color:#9a6412;font:600 11px/1 Arial,Helvetica,sans-serif;padding:5px 8px;border-radius:20px;">Ocupado</span>{%- endif -%}
+{%- endmacro -%}
+
+<div style="display:none;max-height:0;overflow:hidden;">{{ k.d40 }} imóveis com 40% ou mais abaixo da avaliação em ES, MG e BA — com risco jurídico e ocupação analisados.</div>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef1f5;">
+<tr><td align="center" class="outer" style="padding:24px 12px;">
+<table role="presentation" width="640" cellpadding="0" cellspacing="0" style="width:100%;max-width:640px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 2px 10px rgba(15,42,68,.08);">
+
+<!-- CABEÇALHO -->
+<tr><td class="px" style="background:{{ navy }};padding:30px 32px 26px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+    <td style="font:700 13px/1 Arial,Helvetica,sans-serif;color:{{ gold }};letter-spacing:3px;text-transform:uppercase;">&#9673; Radar de Leilões</td>
+    <td align="right" style="font:12px/1 Arial,Helvetica,sans-serif;color:#9fb3c8;">{{ hoje }}</td>
+  </tr></table>
+  <h1 class="hero" style="margin:22px 0 8px;font:400 30px/1.2 Georgia,'Times New Roman',serif;color:#ffffff;">Oportunidades da semana<br>em leilões do ES, MG e BA</h1>
+  <p style="margin:0;font:15px/1.55 Arial,Helvetica,sans-serif;color:#c9d6e3;">Lemos os editais por você. Analisamos <b style="color:#fff;">{{ '{:,}'.format(k.total).replace(',', '.') }} lotes abertos</b> de fontes oficiais e separamos os que mais valem a sua atenção, com <b style="color:#fff;">desconto real, ocupação e risco jurídico</b> já avaliados.</p>
+</td></tr>
+
+<!-- KPIs -->
+<tr><td style="padding:0 20px;background:{{ navy }};">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px 12px 0 0;"><tr>
+  {%- for val, label in [('{:,}'.format(k.total).replace(',', '.'), 'lotes monitorados'), (k.d40, 'com 40%+ de desconto'), ('%.0f%%'|format(k.maxd or 0), 'maior desconto'), (k.fontes, 'fontes verificadas')] %}
+    <td width="25%" align="center" style="padding:20px 6px 16px;{% if not loop.last %}border-right:1px solid {{ line }};{% endif %}">
+      <div class="kpi-v" style="font:700 24px/1 Georgia,'Times New Roman',serif;color:{{ navy }};">{{ val }}</div>
+      <div class="kpi-l" style="font:11px/1.3 Arial,Helvetica,sans-serif;color:{{ muted }};margin-top:6px;text-transform:uppercase;letter-spacing:.5px;">{{ label }}</div>
+    </td>
+  {%- endfor %}
+  </tr></table>
+</td></tr>
+
+<!-- DESTAQUES -->
+<tr><td class="px" style="padding:30px 28px 6px;">
+  <div style="font:700 11px/1 Arial,Helvetica,sans-serif;color:{{ gold }};letter-spacing:2px;text-transform:uppercase;">Seleção do Radar</div>
+  <h2 style="margin:8px 0 4px;font:400 23px/1.25 Georgia,'Times New Roman',serif;color:{{ ink }};">Destaques por estado</h2>
+  <p style="margin:0;font:14px/1.5 Arial,Helvetica,sans-serif;color:{{ muted }};">Grandes descontos, preço entre R$ 80 mil e R$ 3 milhões e sem sinal de risco alto. Desocupados e com risco baixo têm prioridade.</p>
+</td></tr>
+
+{%- for h in highlights %}
+{%- if loop.first or h.uf != loop.previtem.uf %}
+<tr><td class="px" style="padding:22px 28px 4px;">
+  <div style="font:700 13px/1 Arial,Helvetica,sans-serif;color:{{ navy }};border-bottom:2px solid {{ gold }};display:inline-block;padding-bottom:6px;">{{ uf_names[h.uf] }}</div>
+</td></tr>
+{%- endif %}
+<tr><td class="px" style="padding:12px 28px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid {{ line }};border-radius:12px;overflow:hidden;">
+  {%- if h.cid %}
+  <tr><td style="padding:0;line-height:0;font-size:0;">
+    <a href="{{ h.url }}"><img src="cid:{{ h.cid }}" width="584" alt="{{ h.title }}" style="display:block;width:100%;max-width:584px;height:auto;border:0;"></a>
+  </td></tr>
+  {%- endif %}
+  <tr>
+    <td valign="top" style="padding:16px 18px 18px;">
+      <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+        <td style="background:{{ gold }};color:#fff;font:700 13px/1 Arial,Helvetica,sans-serif;padding:6px 9px;border-radius:6px;">-{{ '%.0f'|format(h.discount_pct) }}%</td>
+        <td style="padding-left:8px;font:11px/1 Arial,Helvetica,sans-serif;color:{{ muted }};text-transform:uppercase;letter-spacing:.5px;">{{ src[h.source_id] }}{% if h.comitente and h.comitente != 'Caixa Econômica Federal' %} · {{ h.comitente }}{% endif %}</td>
+      </tr></table>
+      <div style="font:700 16px/1.3 Arial,Helvetica,sans-serif;color:{{ ink }};margin:10px 0 2px;">{{ h.title }}</div>
+      <div style="font:13px/1.4 Arial,Helvetica,sans-serif;color:{{ muted }};">{% if h.neighborhood %}{{ h.neighborhood }} · {% endif %}{{ h.city }}/{{ h.uf }}{% set a = h.area_privativa_m2 or h.area_total_m2 %}{% if a %} · {% if a >= 10000 %}{{ ('%.1f'|format(a / 10000)).replace('.', ',') }} ha{% else %}{{ '{:,.0f}'.format(a).replace(',', '.') }} m²{% endif %}{% if not h.area_privativa_m2 %} de terreno{% endif %}{% endif %}{% if h.bedrooms %} · {{ h.bedrooms }} quartos{% endif %}</div>
+      <div style="margin:12px 0 2px;font:700 21px/1 Georgia,'Times New Roman',serif;color:{{ navy }};">{{ brl(h.min_bid) }}</div>
+      <div style="font:12px/1.4 Arial,Helvetica,sans-serif;color:{{ muted }};">avaliação <span style="text-decoration:line-through;">{{ brl(h.appraisal_value) }}</span> · economia de <b style="color:#1e7a46;">{{ brl(h.appraisal_value - h.min_bid) }}</b></div>
+      <div style="margin-top:10px;">{{ risk_pill(h.risk_level) }} {{ occ_pill(h.occupied) }}</div>
+      <div style="font:12px/1.5 Arial,Helvetica,sans-serif;color:{{ ink }};margin-top:8px;">{{ h.sale_type }}{% if h.auction_date %} · <b>{{ fmt_date(h.auction_date) }}</b>{% endif %}{% if h.risk_reasons %}<br><span style="color:{{ muted }};">{{ h.risk_reasons[:2]|join(' · ') }}</span>{% endif %}</div>
+      <div style="margin-top:12px;"><a href="{{ h.url }}" style="font:700 13px/1 Arial,Helvetica,sans-serif;color:{{ navy }};text-decoration:none;border-bottom:2px solid {{ gold }};padding-bottom:2px;">Ver edital oficial &rarr;</a></div>
+    </td>
+  </tr>
+  </table>
+</td></tr>
+{%- endfor %}
+
+<!-- RANKING POR UF -->
+<tr><td class="px" style="padding:30px 28px 4px;">
+  <div style="font:700 11px/1 Arial,Helvetica,sans-serif;color:{{ gold }};letter-spacing:2px;text-transform:uppercase;">Ranking</div>
+  <h2 style="margin:8px 0 4px;font:400 23px/1.25 Georgia,'Times New Roman',serif;color:{{ ink }};">Maiores descontos abertos</h2>
+  <p style="margin:0;font:14px/1.5 Arial,Helvetica,sans-serif;color:{{ muted }};">Imóveis avaliados em R$ 60 mil ou mais, com o lance mínimo atual.</p>
+</td></tr>
+{%- for uf, rows in top.items() if rows %}
+<tr><td class="px" style="padding:14px 28px 0;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+    <tr><td colspan="3" style="font:700 12px/1 Arial,Helvetica,sans-serif;color:{{ navy }};padding:8px 0;text-transform:uppercase;letter-spacing:1px;">{{ uf_names[uf] }}</td></tr>
+    {%- for r in rows %}
+    <tr>
+      <td style="border-top:1px solid {{ line }};padding:10px 0;font:13px/1.35 Arial,Helvetica,sans-serif;color:{{ ink }};">
+        <a href="{{ r.url }}" style="color:{{ ink }};text-decoration:none;"><b>{{ r.title }}</b></a><br>
+        <span style="color:{{ muted }};font-size:12px;">{{ r.neighborhood or '' }}{% if r.neighborhood %} · {% endif %}{{ src[r.source_id] }} · {{ r.sale_type }}</span>
+      </td>
+      <td align="right" style="border-top:1px solid {{ line }};padding:10px 8px;font:13px/1.35 Arial,Helvetica,sans-serif;color:{{ ink }};white-space:nowrap;">{{ brl(r.min_bid) }}<br><span style="color:{{ muted }};font-size:11px;text-decoration:line-through;">{{ brl(r.appraisal_value) }}</span></td>
+      <td align="right" style="border-top:1px solid {{ line }};padding:10px 0;white-space:nowrap;"><span style="font:700 13px/1 Arial,Helvetica,sans-serif;color:{{ gold }};">-{{ '%.0f'|format(r.discount_pct) }}%</span></td>
+    </tr>
+    {%- endfor %}
+  </table>
+</td></tr>
+{%- endfor %}
+
+{%- if agenda %}
+<!-- AGENDA VEÍCULOS -->
+<tr><td class="px" style="padding:30px 28px 4px;">
+  <div style="font:700 11px/1 Arial,Helvetica,sans-serif;color:{{ gold }};letter-spacing:2px;text-transform:uppercase;">Veículos</div>
+  <h2 style="margin:8px 0 4px;font:400 23px/1.25 Georgia,'Times New Roman',serif;color:{{ ink }};">Agenda de leilões do Detran-BA</h2>
+  <p style="margin:0 0 6px;font:14px/1.5 Arial,Helvetica,sans-serif;color:{{ muted }};">{{ '{:,}'.format(k.veiculos).replace(',', '.') }} veículos conservados e sucatas aproveitáveis em editais oficiais com disputa marcada.</p>
+</td></tr>
+<tr><td class="px" style="padding:6px 28px 0;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f8fa;border-radius:10px;">
+  {%- for a in agenda %}
+    <tr>
+      <td width="74" valign="top" style="padding:14px 0 14px 16px;{% if not loop.first %}border-top:1px solid {{ line }};{% endif %}">
+        <div style="background:{{ navy }};color:#fff;border-radius:8px;text-align:center;padding:7px 0;font:700 15px/1.1 Arial,Helvetica,sans-serif;width:56px;">{{ a.auction_date[8:10] if a.auction_date else '—' }}<br><span style="font-size:10px;font-weight:400;color:#c9d6e3;">{{ ['','JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'][a.auction_date[5:7]|int] if a.auction_date else '' }}</span></div>
+      </td>
+      <td valign="top" style="padding:14px 16px 14px 8px;font:13px/1.45 Arial,Helvetica,sans-serif;color:{{ ink }};{% if not loop.first %}border-top:1px solid {{ line }};{% endif %}">
+        <a href="{{ a.url }}" style="color:{{ ink }};text-decoration:none;"><b>{{ a.title }}</b></a><br>
+        <span style="color:{{ muted }};">{{ a.neighborhood }}</span>
+      </td>
+    </tr>
+  {%- endfor %}
+  </table>
+</td></tr>
+{%- endif %}
+
+<!-- METODOLOGIA -->
+<tr><td class="px" style="padding:32px 28px 8px;">
+  <div style="font:700 11px/1 Arial,Helvetica,sans-serif;color:{{ gold }};letter-spacing:2px;text-transform:uppercase;">Por que confiar</div>
+  <h2 style="margin:8px 0 14px;font:400 23px/1.25 Georgia,'Times New Roman',serif;color:{{ ink }};">Como o Radar lê cada lote</h2>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+  {%- for t, d in [('Fontes oficiais', 'Caixa (arquivo oficial), Detran e leiloeiros oficiais identificados. Cada lote leva ao edital original.'), ('Risco jurídico', 'Lemos ocupação, penhoras, indisponibilidades e ações na matrícula. Lotes de valor alto passam por revisão jurídica.'), ('Histórico diário', 'Acompanhamos cada lote todos os dias: quedas de preço, reaberturas e arremates.')] %}
+    <td width="33%" valign="top" style="padding:0 {{ '8px' if not loop.last else '0' }} 0 {{ '8px' if not loop.first else '0' }};">
+      <div style="border-top:3px solid {{ gold }};padding-top:10px;font:700 14px/1.3 Arial,Helvetica,sans-serif;color:{{ navy }};">{{ t }}</div>
+      <div style="font:13px/1.5 Arial,Helvetica,sans-serif;color:{{ muted }};margin-top:6px;">{{ d }}</div>
+    </td>
+  {%- endfor %}
+  </tr></table>
+</td></tr>
+
+<!-- CHAMADA -->
+<tr><td class="px" style="padding:26px 28px 30px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:{{ navy }};border-radius:12px;"><tr><td style="padding:24px 26px;">
+    <div style="font:400 20px/1.3 Georgia,'Times New Roman',serif;color:#ffffff;">Receba só o que combina com o seu perfil</div>
+    <div style="font:14px/1.55 Arial,Helvetica,sans-serif;color:#c9d6e3;margin:8px 0 16px;">Diga a cidade, a faixa de preço e o desconto mínimo que você procura. O Radar avisa por e-mail e WhatsApp assim que surgir um lote assim, e um relatório jurídico completo está disponível para o lote em que você vai dar lance.</div>
+    <a href="mailto:{{ contact }}?subject=Quero%20meu%20perfil%20no%20Radar%20de%20Leil%C3%B5es" style="display:inline-block;background:{{ gold }};color:#ffffff;font:700 14px/1 Arial,Helvetica,sans-serif;text-decoration:none;padding:13px 20px;border-radius:8px;">Quero configurar meu perfil</a>
+  </td></tr></table>
+</td></tr>
+
+<!-- RODAPÉ -->
+<tr><td class="px" style="background:#f6f8fa;padding:20px 28px;border-top:1px solid {{ line }};">
+  <p style="margin:0 0 8px;font:11px/1.55 Arial,Helvetica,sans-serif;color:{{ muted }};"><b>Fontes desta edição:</b> {% for s, n in k.by_src.items() %}{{ src[s] }} ({{ '{:,}'.format(n).replace(',', '.') }}){% if not loop.last %} · {% endif %}{% endfor %}. Dados captados em {{ hoje }}. Preços e datas podem mudar: confira sempre o edital oficial.</p>
+  <p style="margin:0;font:11px/1.55 Arial,Helvetica,sans-serif;color:{{ muted }};">{{ disclaimer }}</p>
+</td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>

@@ -17,7 +17,9 @@ REVIEW_VALUE_THRESHOLD = 300_000.0  # lotes acima disso vão para revisão do ad
 
 # (padrão no texto normalizado, nível, motivo)
 TEXT_SIGNALS: list[tuple[str, str, str]] = [
-    (r"\bpenhora", "alto", "Menção a penhora no edital"),
+    (r"\bpenhor", "alto", "Penhora registrada na matrícula"),
+    (r"indisponibilidade", "alto", "Indisponibilidade de bens averbada"),
+    (r"\bhipotec", "medio", "Hipoteca mencionada"),
     (r"\bacao (judicial|anulatoria|revisional)|\bdisputa judicial|\blitigio", "alto", "Disputa judicial mencionada"),
     (r"\bonus (nao baixad|pendente)|\bgravame", "alto", "Ônus/gravame não baixado"),
     (r"\busufruto", "alto", "Usufruto sobre o imóvel"),
@@ -38,6 +40,9 @@ def _norm(s: str) -> str:
 
 def evaluate(lot: Lot) -> tuple[str, list[str], bool]:
     """Retorna (nível, motivos, precisa_revisão)."""
+    if lot.lot_count:
+        return "sem_info", ["Edital com vários lotes: avaliar cada lote no PDF do edital",
+                            "Bens vendidos no estado em que se encontram"], False
     text = _norm(" ".join(filter(None, [lot.description, lot.sale_type, lot.title])))
     reasons: list[str] = []
     level = "baixo"
@@ -48,10 +53,21 @@ def evaluate(lot: Lot) -> tuple[str, list[str], bool]:
         if LEVEL_ORDER[new] > LEVEL_ORDER[level]:
             level = new
 
+    known_occupancy = lot.imovel is not None and lot.imovel.occupied is not None
+    sinais = text.split("sinais na matricula:")
     for pattern, lvl, why in TEXT_SIGNALS:
-        if re.search(pattern, text):
+        if known_occupancy and "ocupad" in pattern:
+            continue  # status oficial de ocupação prevalece sobre menções genéricas
+        legal = any(k in pattern for k in ("penhor", "indisponib", "hipotec", "onus", "usufruto", "acao"))
+        haystack = sinais[1] if (legal and len(sinais) > 1 and lot.source_id in ("zuk", "mega")) else text
+        if legal and lot.source_id in ("zuk", "mega") and len(sinais) == 1:
+            continue  # nesses portais, risco alto só com sinal concreto da matrícula
+        if re.search(pattern, haystack):
             # "desocupado" contém "ocupad": não contar como ocupado
             if why.startswith("Imóvel ocupado") and re.search(r"\bdesocupad", text):
+                continue
+            if why.startswith("Dívidas") and re.search(r"quitad[oa]s? pelo (banco|vendedor|comitente)", text):
+                reasons.append("IPTU/débitos anteriores quitados pelo vendedor")
                 continue
             bump(lvl, why)
 
@@ -61,8 +77,10 @@ def evaluate(lot: Lot) -> tuple[str, list[str], bool]:
             bump("medio", "Venda judicial — conferir processo e intimações")
         elif im.judicial is False:
             reasons.append("Venda extrajudicial")
-        if im.occupied:
-            bump("medio", "Imóvel ocupado")
+        if im.occupied and not any("ocupado" in r for r in reasons):
+            bump("medio", "Imóvel ocupado — desocupação por conta do comprador")
+        elif im.occupied is False and "Imóvel desocupado" not in reasons:
+            reasons.append("Imóvel desocupado")
         if (im.iptu_debt or 0) + (im.condo_debt or 0) > 0.1 * (lot.min_bid or float("inf")):
             bump("medio", "Dívidas acima de 10% do lance mínimo")
         if im.encumbrances:

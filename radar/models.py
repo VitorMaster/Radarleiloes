@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from typing import Literal
 
 Category = Literal["imovel", "veiculo"]
@@ -44,6 +44,7 @@ class Lot:
     url: str
     title: str | None = None
     leiloeiro: str | None = None
+    comitente: str | None = None
     sale_type: str | None = None
     praca: int | None = None
     auction_date: str | None = None
@@ -56,7 +57,8 @@ class Lot:
     description: str | None = None
     imovel: ImovelInfo | None = None
     veiculo: VeiculoInfo | None = None
-    photos: list[str] = field(default_factory=list)
+    photo_url: str | None = None
+    lot_count: int | None = None
 
     @property
     def discount_pct(self) -> float | None:

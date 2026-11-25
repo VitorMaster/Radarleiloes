@@ -1,6 +1,5 @@
- Lista de Imóveis da Caixa
- 
-N° do imóvel;UF;Cidade;Bairro;Endereço;Preço;Valor de avaliação;Desconto;Descrição;Modalidade de venda;Link de acesso
-8444400012345 ;ES;VITORIA;JARDIM CAMBURI;RUA EXEMPLO, N. 100, APTO 201;180.000,00;300.000,00;40.00;Apartamento, 0.00 de área total, 72.50 de área privativa, 0.00 de área do terreno, 2 qto(s), 1 WC, 1 vaga(s) de garagem. Imóvel ocupado.;Venda Direta Online;https://venda-imoveis.caixa.gov.br/sistema/detalhe-imovel.asp?hdnimovel=8444400012345
-8444400012346 ;ES;SAO MATEUS;CENTRO;AV TESTE, 50;95.000,00;110.000,00;13.64;Casa, 250.00 de área total, 80.00 de área privativa, 250.00 de área do terreno, 3 qto(s), 2 WC. Imóvel desocupado.;Leilão SFI - Edital Único;https://venda-imoveis.caixa.gov.br/sistema/detalhe-imovel.asp?hdnimovel=8444400012346
-8444400012347 ;ES;SERRA;LARANJEIRAS;RUA X, 10;420.000,00;800.000,00;47.50;Terreno, 1200.00 de área total, 0.00 de área privativa, 1200.00 de área do terreno.;Licitação Aberta;https://venda-imoveis.caixa.gov.br/sistema/detalhe-imovel.asp?hdnimovel=8444400012347
+ Lista de Imóveis da Caixa;;Data de geração:;24/11/2026;;;;;;;
+N° do imóvel;UF;Cidade;Bairro;Endereço;Preço;Valor de avaliação;Desconto;Financiamento;Descrição;Modalidade de venda;Link de acesso
+8444400012345 ;ES;VITORIA;JARDIM CAMBURI;RUA EXEMPLO, N. 100, APTO 201;180.000,00;300.000,00;40.00;Sim;Apartamento, 0.00 de área total, 72.50 de área privativa, 0.00 de área do terreno, 2 qto(s), 1 WC, 1 vaga(s) de garagem. Imóvel ocupado.;Venda Direta Online;https://venda-imoveis.caixa.gov.br/sistema/detalhe-imovel.asp?hdnimovel=8444400012345
+8444400012346 ;ES;SAO MATEUS;CENTRO;AV TESTE, 50;95.000,00;110.000,00;13.64;Não;Casa, 250.00 de área total, 80.00 de área privativa, 250.00 de área do terreno, 3 qto(s), 2 WC. Imóvel desocupado.;Leilão SFI - Edital Único;https://venda-imoveis.caixa.gov.br/sistema/detalhe-imovel.asp?hdnimovel=8444400012346
+8444400012347 ;ES;SERRA;LARANJEIRAS;RUA X, 10;420.000,00;800.000,00;47.50;Não;Terreno, 1200.00 de área total, 0.00 de área privativa, 1200.00 de área do terreno.;Licitação Aberta;https://venda-imoveis.caixa.gov.br/sistema/detalhe-imovel.asp?hdnimovel=8444400012347

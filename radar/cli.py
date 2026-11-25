@@ -19,7 +19,13 @@ from .db import connect
 
 def cmd_capture(args) -> int:
     from .pipeline import run_capture
-    from .sources import get_source
+    from .sources import REGISTRY, get_source
+
+    if args.source == "all":
+        rc = 0
+        for sid in REGISTRY:
+            rc |= cmd_capture(argparse.Namespace(**{**vars(args), "source": sid}))
+        return rc
 
     source = get_source(args.source)
     ufs = args.uf or list(source.scopes)
@@ -56,6 +62,27 @@ def cmd_digest(args) -> int:
     return 0
 
 
+def cmd_report(args) -> int:
+    from pathlib import Path
+
+    from .digest import send_email
+    from .report import build_report
+    out = Path(args.out)
+    with closing(connect(args.db)) as conn:
+        rep = build_report(conn, out / "img")
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "relatorio.html").write_text(rep["html"], encoding="utf-8")
+    preview = rep["html"]
+    for i, img in enumerate(rep["images"]):  # versão para abrir no navegador
+        preview = preview.replace(f"cid:att{i}", f"img/{img.name}")
+    (out / "relatorio_preview.html").write_text(preview, encoding="utf-8")
+    print(f"Assunto: {rep['subject']}\nDestaques: {len(rep['highlights'])}  imagens: {len(rep['images'])}\n"
+          f"Arquivos em {out}/")
+    if args.to:
+        print("Enviado." if send_email(args.to, rep["subject"], rep["html"], rep["images"]) else "SMTP não configurado.")
+    return 0
+
+
 def cmd_health(args) -> int:
     from .pipeline import health_report
     bad = 0
@@ -84,7 +111,10 @@ def cmd_serve(args) -> int:
 
 def cmd_daily(args) -> int:
     import os
-    rc = cmd_capture(argparse.Namespace(db=args.db, source="caixa", uf=None, file=None, encoding="latin-1"))
+    from .sources import REGISTRY
+    rc = 0
+    for sid in REGISTRY:
+        rc |= cmd_capture(argparse.Namespace(db=args.db, source=sid, uf=None, file=None, encoding="latin-1"))
     if os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"):
         cmd_grade(argparse.Namespace(db=args.db, limit=args.grade_limit, uf=None))
     else:
@@ -99,7 +129,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = p.add_subparsers(dest="cmd", required=True)
 
     c = sub.add_parser("capture", help="captura lotes de uma fonte")
-    c.add_argument("--source", default="caixa")
+    c.add_argument("--source", default="caixa", help="caixa | zuk | mega | detran_ba | all")
     c.add_argument("--uf", action="append", help="UF (repetível). Padrão: todas da fonte")
     c.add_argument("--file", help="usar arquivo local em vez de baixar")
     c.add_argument("--encoding", default="latin-1")
@@ -115,6 +145,11 @@ def main(argv: list[str] | None = None) -> int:
     d.set_defaults(func=cmd_digest)
 
     sub.add_parser("health", help="monitor das fontes").set_defaults(func=cmd_health)
+
+    rp = sub.add_parser("report", help="relatório para clientes (HTML de e-mail)")
+    rp.add_argument("--out", default="data/relatorio")
+    rp.add_argument("--to", help="enviar por SMTP para este e-mail")
+    rp.set_defaults(func=cmd_report)
 
     r = sub.add_parser("review", help="registra revisão jurídica humana")
     r.add_argument("lot_id", type=int)

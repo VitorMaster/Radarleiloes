@@ -14,7 +14,11 @@ das fases 2 e 3 (nota de conservação por IA, risco jurídico e resumo diário)
 |---|---|---|
 | Esquema de dados (campos comuns + imóvel + veículo + conservação + risco) | `radar/schema.sql` | ✅ |
 | **Histórico append-only** de preço e status desde o 1º dia | tabela `lot_observations` | ✅ |
-| Fonte 1: **Caixa**, pelo CSV oficial por UF (sem raspagem de HTML) | `radar/sources/caixa.py` | ✅ parser testado; download depende da rede do servidor |
+| **Caixa**: CSV oficial por UF, com cerca de 1.970 imóveis em ES/MG/BA | `radar/sources/caixa.py` | ✅ captando ao vivo |
+| **Portal Zuk**: bancos (Itaú, Santander, Bradesco), securitizadoras e TJs, com ocupação e matrícula lidas no detalhe | `radar/sources/zuk.py` | ✅ ao vivo (1ª página por UF; o robots.txt proíbe o "carregar mais") |
+| **Mega Leilões**: imóveis e veículos, judiciais e extrajudiciais, com avaliação e sinais da matrícula | `radar/sources/mega.py` | ✅ ao vivo |
+| **Detran-BA**: agenda de editais de veículos (municípios, nº de lotes, data, PDF) | `radar/sources/detran_ba.py` | ✅ ao vivo |
+| **Relatório para clientes**: e-mail elegante com destaques, ranking por UF e agenda | `radar report`, `radar/templates/report.html` | ✅ |
 | Captura diária: novos, alterados, **encerrados** (sumiram da fonte) | `radar/pipeline.py` | ✅ |
 | Monitor de fontes: falha, zero lotes, **queda brusca de volume** | `radar health`, página `/fontes` | ✅ |
 | Risco jurídico: sinais automáticos do edital + fila de revisão do advogado | `radar/risk.py`, `radar review` | ✅ (critérios iniciais, a calibrar) |
@@ -34,14 +38,16 @@ radar capture --uf ES --file tests/fixtures/caixa_ES.csv   # ou a partir de um a
 export ANTHROPIC_API_KEY=...  # opcional: nota de conservação
 radar grade --limit 20        # avalia primeiro os 20 lotes de maior desconto
 radar serve                   # abre o painel
+radar capture --source all    # todas as fontes
 radar digest                  # gera o resumo diário em data/digests/ (ou envia por SMTP)
+radar report --to cliente@exemplo.com   # relatório completo com fotos (SMTP)
 radar daily                   # rotina completa, para o cron
 pytest                        # testes
 ```
 
 Cron sugerido (todo dia às 6h): `0 6 * * * cd /caminho && .venv/bin/radar daily >> data/daily.log 2>&1`
 
-Variáveis de ambiente: `RADAR_DB` (padrão `data/radar.db`), `RADAR_MODEL`,
+Variáveis de ambiente: `RADAR_DB` (padrão `data/radar.db`), `RADAR_MODEL`, `RADAR_CONTACT_EMAIL` (botão do relatório),
 `ANTHROPIC_API_KEY`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` e `SMTP_FROM`.
 
 ## Para adicionar uma fonte

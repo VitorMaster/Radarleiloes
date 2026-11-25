@@ -17,13 +17,12 @@ import re
 import unicodedata
 from typing import Iterable
 
-import requests
-
 from ..models import ImovelInfo, Lot
-from .base import USER_AGENT, Source
+from .base import Source
 
 CSV_URL = "https://venda-imoveis.caixa.gov.br/listaweb/Lista_imoveis_{uf}.csv"
 DETAIL_URL = "https://venda-imoveis.caixa.gov.br/sistema/detalhe-imovel.asp?hdnimovel={id}"
+PHOTO_URL = "https://venda-imoveis.caixa.gov.br/fotos/F{id:0>13}21.jpg"
 
 
 def _norm(s: str) -> str:
@@ -80,17 +79,9 @@ class CaixaSource(Source):
     layer = 1
     leiloeiro = "Caixa Econômica Federal"
     verified = True
-    scopes = ("ES", "MG", "BA")
-
-    def __init__(self, session: requests.Session | None = None, timeout: int = 60):
-        self.session = session or requests.Session()
-        self.session.headers["User-Agent"] = USER_AGENT
-        self.timeout = timeout
 
     def download(self, uf: str) -> str:
-        r = self.session.get(CSV_URL.format(uf=uf.upper()), timeout=self.timeout)
-        r.raise_for_status()
-        return r.content.decode("latin-1")
+        return self.get(CSV_URL.format(uf=uf.upper())).content.decode("latin-1")
 
     def fetch(self, scope: str) -> Iterable[Lot]:
         return list(self.parse(self.download(scope), scope))
@@ -98,7 +89,7 @@ class CaixaSource(Source):
     def parse(self, text: str, uf: str | None = None) -> Iterable[Lot]:
         lines = text.splitlines()
         header_idx = next(
-            (i for i, line in enumerate(lines) if "imovel" in _norm(line.split(";")[0])), None
+            (i for i, line in enumerate(lines) if re.match(r"n\w* (do )?imovel", _norm(line.split(";")[0]))), None
         )
         if header_idx is None:
             raise ValueError("Cabeçalho do CSV da Caixa não encontrado — o formato mudou?")
@@ -121,6 +112,8 @@ class CaixaSource(Source):
             info = parse_description(desc)
             # Imóveis da Caixa vêm de consolidação de alienação fiduciária: venda extrajudicial.
             info.judicial = False
+            fin = _norm(col(row, "financiamento"))
+            info.accepts_financing = True if fin == "sim" else False if fin in ("nao", "n") else None
             link = col(row, "link") or DETAIL_URL.format(id=ext_id)
             city = col(row, "cidade").title() or None
             yield Lot(
@@ -130,6 +123,8 @@ class CaixaSource(Source):
                 url=link,
                 title=f"{(info.property_type or 'Imóvel').capitalize()} em {city or '?'}",
                 leiloeiro=self.leiloeiro,
+                comitente="Caixa Econômica Federal",
+                photo_url=PHOTO_URL.format(id=ext_id),
                 sale_type=sale_type or None,
                 appraisal_value=parse_brl(col(row, "valor de avaliacao")),
                 min_bid=parse_brl(col(row, "preco")),

@@ -48,11 +48,11 @@ def upsert_lot(conn: sqlite3.Connection, lot: Lot, ts: str) -> tuple[int, str | 
         (lot.source_id, lot.external_id),
     ).fetchone()
     fields = dict(
-        category=lot.category, title=lot.title, url=lot.url, leiloeiro=lot.leiloeiro,
+        category=lot.category, title=lot.title, url=lot.url, leiloeiro=lot.leiloeiro, comitente=lot.comitente,
         sale_type=lot.sale_type, praca=lot.praca, auction_date=lot.auction_date,
         appraisal_value=lot.appraisal_value, min_bid=lot.min_bid, discount_pct=lot.discount_pct,
         city=lot.city, uf=lot.uf, neighborhood=lot.neighborhood, address=lot.address,
-        description=lot.description, content_hash=h,
+        description=lot.description, photo_url=lot.photo_url, lot_count=lot.lot_count, content_hash=h,
     )
     event: str | None
     if row is None:
@@ -97,8 +97,7 @@ def upsert_lot(conn: sqlite3.Connection, lot: Lot, ts: str) -> tuple[int, str | 
                 ON CONFLICT(lot_id) DO UPDATE SET {", ".join(f"{k}=excluded.{k}" for k in d)}""",
             (lot_id, *d.values()),
         )
-    if event:
-        assess_risk(conn, lot_id, lot, ts)
+    assess_risk(conn, lot_id, lot, ts)  # barato; mantém o risco coerente quando as regras evoluem
     return lot_id, event
 
 

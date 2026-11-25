@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS lots (
     title            TEXT,
     url              TEXT NOT NULL,            -- link da fonte (sempre guardado)
     leiloeiro        TEXT,
+    comitente        TEXT,                     -- quem vende: banco, tribunal, órgão
     sale_type        TEXT,                     -- modalidade: venda direta, leilão SFI, judicial...
     praca            INTEGER,                  -- 1ª ou 2ª praça, quando houver
     auction_date     TEXT,                     -- ISO 8601
@@ -33,6 +34,8 @@ CREATE TABLE IF NOT EXISTS lots (
     neighborhood     TEXT,
     address          TEXT,
     description      TEXT,                     -- texto bruto do edital/anúncio
+    photo_url        TEXT,                     -- foto principal (link da fonte)
+    lot_count        INTEGER,                  -- >0 quando o registro é um edital com vários lotes
     status           TEXT NOT NULL DEFAULT 'aberto', -- aberto | encerrado | removido
     content_hash     TEXT,                     -- detecta mudança no anúncio
     first_seen_at    TEXT NOT NULL,
