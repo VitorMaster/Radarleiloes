@@ -43,7 +43,9 @@ def since_for(conn: sqlite3.Connection, mode: str, now: datetime | None = None) 
         monday = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
         return _utc(monday)
     if mode == "atualizacao":
-        row = conn.execute("SELECT MAX(started_at) FROM routine_runs WHERE ok = 1").fetchone()
+        # fim (não início) da última rotina: os lotes dela são gravados durante a captura,
+        # depois de started_at; usar o início os contaria de novo como novidade
+        row = conn.execute("SELECT MAX(COALESCE(finished_at, started_at)) FROM routine_runs WHERE ok = 1").fetchone()
         return row[0] or _utc(now - timedelta(hours=26))
     return None
 
