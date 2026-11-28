@@ -191,9 +191,12 @@ def realized(conn: sqlite3.Connection, n: int = 8, since: str | None = None) -> 
 
 
 # Lotes da 1ª captura de cada fonte formam a linha de base: não contam como "novidade".
-NOT_BASELINE = """l.first_seen_at > (SELECT MIN(started_at) FROM capture_runs c
+# Linha de base = o que já existia no panorama de lançamento ou na 1ª captura de cada fonte.
+# Usa o FIM (finished_at) das execuções: os lotes de uma captura são gravados depois do início.
+NOT_BASELINE = """l.first_seen_at > (SELECT MIN(COALESCE(c.finished_at, c.started_at)) FROM capture_runs c
                                      WHERE c.source_id = l.source_id AND (c.scope = l.uf OR c.scope = 'BR')
-                                       AND c.ok = 1)"""
+                                       AND c.ok = 1)
+               AND l.first_seen_at > COALESCE((SELECT MIN(finished_at) FROM routine_runs WHERE ok = 1), '')"""
 
 
 RADAR_CATEGORY = {"imoveis": "imovel", "veiculos": "veiculo", "eletronicos": "eletronico"}
@@ -537,7 +540,8 @@ def _subject(radar: str, mode: str, k: dict, ch: dict | None, d: str) -> str:
         return f"{marca} · Atualização {d}: " + ", ".join(parts)
     if mode == "semanal":
         n = len(ch["new_items"]) if ch else 0
-        return f"{marca} · Resumo da semana ({d}): {n} novidades na semana"
+        resumo = {0: "sem novidades na semana", 1: "1 novidade na semana"}.get(n, f"{n} novidades na semana")
+        return f"{marca} · Resumo da semana ({d}): {resumo}"
     if radar == "veiculos":
         return f"{marca} · Varredura completa {d}: {k['automoveis']} carros e {k['motos']} motos na sua região"
     if radar == "eletronicos":
